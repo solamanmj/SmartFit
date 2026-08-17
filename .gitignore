@@ -1,0 +1,12 @@
+# MongoDB local database
+backend/data/db/
+
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+*.log

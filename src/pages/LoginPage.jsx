@@ -30,12 +30,14 @@ export default function LoginPage() {
       return;
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
-      const res = await loginUserApi({ email: email.trim().toLowerCase(), password });
+      const res = await loginUserApi({ email: cleanEmail, password });
 
       if (res && res.token && res.user) {
         setSubmitted(true);
-        login(res.user.email, password, res.token);
+        login(res.user.email, password, res.token, res.user);
         setLoginMessage(`Welcome back, ${res.user.fullName || res.user.email}! Loading AI Dashboard...`);
         setTimeout(() => {
           navigate('/dashboard');
@@ -46,7 +48,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.warn('Backend API login note:', err.message);
-      const res = login(email.trim().toLowerCase(), password);
+      const res = login(cleanEmail, password);
       if (res && res.success) {
         setSubmitted(true);
         setLoginMessage(`Welcome back, ${res.user.fullName}! Loading AI Dashboard...`);

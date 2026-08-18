@@ -16,6 +16,7 @@ if (-not $testMongo.TcpTestSucceeded) {
 }
 
 Write-Host " Starting Spring Boot Backend API (Port 8081)..." -ForegroundColor Green
+Write-Host " Starting FastAPI Python ML Engine (Port 8000)..." -ForegroundColor Green
 Write-Host " Starting Vite React Frontend (Port 5173)..." -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Cyan
 

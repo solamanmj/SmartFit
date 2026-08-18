@@ -2,13 +2,19 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children, adminOnly = false }) {
   const { user, token, logout } = useAuth();
   const location = useLocation();
 
   // 1. Check if user or token is missing
   if (!user || !token) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    const target = adminOnly ? "/admin/login" : "/login";
+    return <Navigate to={target} state={{ from: location }} replace />;
+  }
+
+  // 2. Strict Role Protection for Admin Portal
+  if (adminOnly && user?.role !== 'ADMIN') {
+    return <Navigate to="/admin/login" replace />;
   }
 
   // 2. Validate JWT Token expiration if token is a JWT string (3 parts separated by dots)

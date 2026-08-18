@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import {
   User, Cpu, ArrowRight, ShieldCheck, Activity, Flame, HeartPulse,
-  Dumbbell, Utensils, LogOut, CheckCircle2, Award, Zap, Edit3
+  Dumbbell, Utensils, LogOut, CheckCircle2, Award, Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -327,26 +327,6 @@ export default function Profile() {
                 </p>
               </div>
             </div>
-
-            <button
-              onClick={() => navigate('/register')}
-              style={{
-                background: 'transparent',
-                color: 'var(--peach-light)',
-                border: '1px solid var(--peach-primary)',
-                padding: '10px 20px',
-                borderRadius: '10px',
-                fontSize: '0.88rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <Edit3 size={15} />
-              <span>Update Biometrics</span>
-            </button>
           </div>
 
         </div>

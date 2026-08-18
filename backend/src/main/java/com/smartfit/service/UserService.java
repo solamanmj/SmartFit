@@ -29,8 +29,11 @@ public class UserService {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
 
-        // Pre-seed diverse database of registered users including Aby and Sruthy
+        // Pre-seed diverse database of registered users including Admin, Aby, and Sruthy
+        User adminUser = createAdminUser("System Administrator", "admin@smartfit.com", "AdminPass123!", 32, "Male", 180.0, 80.0, "Very Active", "System Operations", "Standard Balanced", "Full Gym Access", "None", passwordEncoder);
+
         User[] seedUsers = new User[] {
+            adminUser,
             createUser("Aby Thomas", "aby@example.com", "password123", 27, "Male", 177.0, 74.0, "Moderately Active", "Muscle Building", "Standard Balanced", "Full Gym Access", "None", passwordEncoder),
             createUser("Sruthy Varghese", "sruthy@example.com", "password123", 25, "Female", 163.0, 56.0, "Very Active", "Fat Loss & Toning", "Vegetarian", "Dumbbells & Resistance Bands", "None", passwordEncoder),
             createUser("Aby", "aby@gmail.com", "password123", 27, "Male", 177.0, 74.0, "Moderately Active", "Muscle Building", "Standard Balanced", "Full Gym Access", "None", passwordEncoder),
@@ -67,6 +70,12 @@ public class UserService {
         }
     }
 
+    private User createAdminUser(String name, String email, String pwd, int age, String gender, double h, double w, String act, String goal, String diet, String equip, String med, PasswordEncoder encoder) {
+        User u = createUser(name, email, pwd, age, gender, h, w, act, goal, diet, equip, med, encoder);
+        u.setRole("ADMIN");
+        return u;
+    }
+
     private User createUser(String name, String email, String pwd, int age, String gender, double h, double w, String act, String goal, String diet, String equip, String med, PasswordEncoder encoder) {
         User u = new User();
         u.setFullName(name);
@@ -84,6 +93,19 @@ public class UserService {
         u.setRole("USER");
         u.recalculateMetrics();
         return u;
+    }
+
+    public void deleteUser(String email) {
+        if (email == null) return;
+        String cleanEmail = email.trim().toLowerCase();
+        memoryStore.remove(cleanEmail);
+        try {
+            Optional<User> userOpt = userRepository.findByEmail(cleanEmail);
+            userOpt.ifPresent(userRepository::delete);
+            System.out.println("[SUCCESS] Removed user account " + cleanEmail + " from MongoDB database.");
+        } catch (Exception e) {
+            System.err.println("MongoDB delete user note: " + e.getMessage());
+        }
     }
 
     public User registerUser(RegisterRequest req) {

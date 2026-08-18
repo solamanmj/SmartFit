@@ -15,6 +15,7 @@ const Workout = lazy(() => import('./pages/Workout'));
 const Nutrition = lazy(() => import('./pages/Nutrition'));
 const Progress = lazy(() => import('./pages/Progress'));
 const Challenges = lazy(() => import('./pages/Challenges'));
+const AdminRoutes = lazy(() => import('./routes/AdminRoutes'));
 
 function App() {
   return (
@@ -23,12 +24,15 @@ function App() {
         <div className="App">
           <Suspense fallback={<LoadingSpinner message="Optimizing your SmartFit experience..." />}>
             <Routes>
-              {/* Public Routes */}
+              {/* Public User Routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
 
-              {/* Protected Routes - Guarded by JWT Auth & ProtectedRoute */}
+              {/* Standalone Admin Portal Routes */}
+              <Route path="/admin/*" element={<AdminRoutes />} />
+
+              {/* Protected User Routes */}
               <Route 
                 path="/dashboard" 
                 element={

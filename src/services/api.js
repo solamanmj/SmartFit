@@ -68,6 +68,20 @@ export const fetchAllRegisteredUsersApi = async () => {
   return [];
 };
 
+export const deleteUserApi = async (email) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/users/${encodeURIComponent(email)}`, {
+      method: 'DELETE'
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (err) {
+    console.log('[INFO] Backend delete failed:', err.message);
+  }
+  return { message: 'User deleted locally.' };
+};
+
 export const fetchAIWorkoutPlan = async (userProfile) => {
   await new Promise(resolve => setTimeout(resolve, 300));
   const isMuscle = userProfile?.fitnessGoal === 'Muscle Building';

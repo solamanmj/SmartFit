@@ -30,6 +30,16 @@ public class UserController {
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
+    @DeleteMapping("/{email}")
+    public ResponseEntity<?> deleteUser(@PathVariable String email) {
+        try {
+            userService.deleteUser(email);
+            return ResponseEntity.ok(java.util.Map.of("message", "User account " + email + " successfully deleted from MongoDB database.", "email", email));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(java.util.Map.of("message", e.getMessage()));
+        }
+    }
+
     @PutMapping("/profile")
     public ResponseEntity<?> updateProfile(@RequestParam String email, @RequestBody User profileData) {
         try {

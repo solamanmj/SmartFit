@@ -186,7 +186,7 @@ export default function Dashboard() {
           <hr style={{ border: 'none', borderTop: '1px solid rgba(255, 255, 255, 0.08)', marginBottom: '36px' }} />
 
           {/* Action Sections: Today's Workout & Today's Nutrition */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '26px', marginBottom: '36px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '26px' }}>
             
             {/* Today's Workout */}
             <div className="glass-card" style={{ padding: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
@@ -236,74 +236,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-          </div>
-
-          {/* Registered Users Directory */}
-          <div className="glass-card" style={{ padding: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <User size={22} style={{ color: 'var(--peach-primary)' }} />
-                <h3 style={{ fontSize: '1.4rem', color: '#fff', margin: 0 }}>Registered Users Directory</h3>
-              </div>
-              <span className="badge" style={{ background: 'rgba(74, 222, 128, 0.15)', color: '#4ade80', border: '1px solid rgba(74, 222, 128, 0.3)' }}>
-                MongoDB Live Sync
-              </span>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--peach-soft)' }}>
-                    <th style={{ padding: '12px 14px' }}>User</th>
-                    <th style={{ padding: '12px 14px' }}>Email</th>
-                    <th style={{ padding: '12px 14px' }}>Age / Gender</th>
-                    <th style={{ padding: '12px 14px' }}>Height / Weight</th>
-                    <th style={{ padding: '12px 14px' }}>Fitness Goal</th>
-                    <th style={{ padding: '12px 14px' }}>Diet Style</th>
-                    <th style={{ padding: '12px 14px' }}>Session Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    profile,
-                    ...(registeredAccounts.filter(a => a.email !== profile.email))
-                  ].map((usr, idx) => (
-                    <tr key={usr.email || idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>
-                      <td style={{ padding: '14px', fontWeight: 700, color: '#fff' }}>
-                        {usr.fullName || 'Registered User'}
-                      </td>
-                      <td style={{ padding: '14px', color: 'var(--peach-light)' }}>
-                        {usr.email}
-                      </td>
-                      <td style={{ padding: '14px' }}>
-                        {usr.age || 26} yrs • {usr.gender || 'Male'}
-                      </td>
-                      <td style={{ padding: '14px' }}>
-                        {usr.height || 178} cm • {usr.weight || 75} kg
-                      </td>
-                      <td style={{ padding: '14px', color: '#fff', fontWeight: 600 }}>
-                        {usr.fitnessGoal || 'Muscle Building'}
-                      </td>
-                      <td style={{ padding: '14px' }}>
-                        {usr.dietaryPreference || 'Standard Balanced'}
-                      </td>
-                      <td style={{ padding: '14px' }}>
-                        <span style={{
-                          background: 'rgba(74, 222, 128, 0.15)',
-                          color: '#4ade80',
-                          padding: '4px 10px',
-                          borderRadius: '12px',
-                          fontSize: '0.78rem',
-                          fontWeight: 700
-                        }}>
-                          Active
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
 
         </div>

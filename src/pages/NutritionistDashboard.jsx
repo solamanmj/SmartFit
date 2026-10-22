@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import SpecialistClientChat from '../components/SpecialistClientChat';
@@ -80,6 +81,15 @@ const STANDARD_DAY_OPTIONS = [
 
 export default function NutritionistDashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Guard: Redirect regular users away from specialist nutritionist station
+  useEffect(() => {
+    if (user && (user.role?.toUpperCase() === 'USER' || !['NUTRITIONIST', 'ADMIN'].includes(user.role?.toUpperCase()))) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [user, navigate]);
+
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalAssignedUsers: 0,

@@ -25,8 +25,15 @@ export default function LoginPage() {
   const [selectedRole, setSelectedRole] = useState(initialRole);
 
   // Form State
-  const [email, setEmail] = useState(initialRole === 'NUTRITIONIST' ? 'sruthy@example.com' : (initialRole === 'TRAINER' ? 'marcus@example.com' : (initialRole === 'ADMIN' ? 'admin@smartfit.com' : 'aby@example.com')));
-  const [password, setPassword] = useState(initialRole === 'ADMIN' ? 'AdminPass123!' : 'password123');
+  const [email, setEmail] = useState(
+    initialRole === 'NUTRITIONIST' ? 'sruthy@example.com' : 
+    (initialRole === 'TRAINER' ? 'marcus@example.com' : 
+    (initialRole === 'ADMIN' ? 'admin@smartfit.com' : ''))
+  );
+  const [password, setPassword] = useState(
+    initialRole === 'ADMIN' ? 'AdminPass123!' : 
+    ((initialRole === 'TRAINER' || initialRole === 'NUTRITIONIST') ? 'password123' : '')
+  );
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [submitted, setSubmitted] = useState(false);
@@ -45,8 +52,8 @@ export default function LoginPage() {
       gradient: 'linear-gradient(135deg, #FF9E7D 0%, #E8809D 100%)',
       glowShadow: '0 0 25px rgba(255, 158, 125, 0.35)',
       description: 'Access AI personalized workouts, macro meal tracking, and coach feedback.',
-      demoEmail: 'anugrah@gmail.com',
-      demoPassword: 'password123',
+      demoEmail: '',
+      demoPassword: '',
       targetPath: '/dashboard'
     },
     TRAINER: {
@@ -111,12 +118,17 @@ export default function LoginPage() {
     setLoginError('');
     const config = ROLE_CONFIGS[roleKey];
     if (config) {
-      setEmail(config.demoEmail);
-      const existingAcc = (registeredAccounts || []).find(a => a.email.toLowerCase() === config.demoEmail.toLowerCase());
-      if (existingAcc && (existingAcc.hasChangedDefaultPassword || existingAcc.passwordLastChangedAt)) {
+      if (roleKey === 'USER') {
+        setEmail('');
         setPassword('');
       } else {
-        setPassword(config.demoPassword);
+        setEmail(config.demoEmail);
+        const existingAcc = (registeredAccounts || []).find(a => a.email.toLowerCase() === config.demoEmail.toLowerCase());
+        if (existingAcc && (existingAcc.hasChangedDefaultPassword || existingAcc.passwordLastChangedAt)) {
+          setPassword('');
+        } else {
+          setPassword(config.demoPassword);
+        }
       }
     }
   };
@@ -546,7 +558,7 @@ export default function LoginPage() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => { setPassword(e.target.value); setLoginError(''); }}
-                      placeholder="Enter account password"
+                      placeholder={selectedRole === 'USER' ? 'Enter your registered password' : 'Enter account password'}
                       required
                       style={{
                         width: '100%',

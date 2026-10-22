@@ -156,8 +156,14 @@ export function AuthProvider({ children }) {
       if (found.password) {
         passwordMatches = (found.password === password);
       }
-      if (!passwordMatches && !hasCustomPass && (password === 'password123' || (found.role === 'ADMIN' && password === 'AdminPass123!'))) {
-        passwordMatches = true;
+      const isStaff = found.role === 'TRAINER' || found.role === 'NUTRITIONIST';
+      const isAdmin = found.role === 'ADMIN';
+      if (!passwordMatches && !hasCustomPass) {
+        if (isStaff && password === 'password123') {
+          passwordMatches = true;
+        } else if (isAdmin && password === 'AdminPass123!') {
+          passwordMatches = true;
+        }
       }
 
       if (!passwordMatches) {

@@ -39,7 +39,7 @@ function App() {
               <Route 
                 path="/trainer-dashboard" 
                 element={
-                  <ProtectedRoute allowedRoles={['TRAINER', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['TRAINER', 'ADMIN']}>
                     <TrainerDashboard />
                   </ProtectedRoute>
                 } 
@@ -51,7 +51,7 @@ function App() {
               <Route 
                 path="/nutritionist-dashboard" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 
@@ -59,7 +59,7 @@ function App() {
               <Route 
                 path="/nutritionist/dashboard" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 
@@ -67,7 +67,7 @@ function App() {
               <Route 
                 path="/nutritionist/clients" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 
@@ -75,7 +75,7 @@ function App() {
               <Route 
                 path="/nutritionist/clients/:clientId" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 
@@ -83,7 +83,7 @@ function App() {
               <Route 
                 path="/nutritionist/assessments" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 
@@ -91,7 +91,7 @@ function App() {
               <Route 
                 path="/nutritionist/meal-plans" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 
@@ -99,7 +99,7 @@ function App() {
               <Route 
                 path="/nutritionist/meal-plans/create" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 
@@ -107,7 +107,7 @@ function App() {
               <Route 
                 path="/nutritionist/food-database" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 
@@ -115,7 +115,7 @@ function App() {
               <Route 
                 path="/nutritionist/reports" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 

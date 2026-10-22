@@ -124,11 +124,6 @@ export default function Navbar() {
                     </Link>
                   </li>
                   <li>
-                    <Link to="/nutritionist-dashboard" className={`nav-link ${location.pathname === '/nutritionist-dashboard' ? 'active' : ''}`} style={{ color: '#34D399', fontWeight: 700 }}>
-                      🥗 Nutritionist
-                    </Link>
-                  </li>
-                  <li>
                     <Link to="/progress" className={`nav-link ${location.pathname === '/progress' ? 'active' : ''}`}>
                       Progress
                     </Link>
@@ -249,7 +244,6 @@ export default function Navbar() {
                   <Link to="/workout-studio" className="nav-link" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--peach-primary)', fontWeight: 800 }}>⚡ 3D Studio</Link>
                   <Link to="/workout" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Workouts</Link>
                   <Link to="/nutrition" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Nutrition</Link>
-                  <Link to="/nutritionist-dashboard" className="nav-link" onClick={() => setMobileMenuOpen(false)} style={{ color: '#34D399', fontWeight: 700 }}>🥗 Nutritionist Portal</Link>
                   <Link to="/progress" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Progress</Link>
                   <Link to="/supplements" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Supplements</Link>
                 </>

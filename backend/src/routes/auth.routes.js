@@ -146,13 +146,22 @@ router.post('/login', async (req, res) => {
       isMatch = (password === user.password);
     }
 
-    // Direct fallback ONLY for demo/seed accounts that have NEVER customized their default password
+    // Direct fallback ONLY for staff roles (TRAINER / NUTRITIONIST) with initial temporary password, or ADMIN
+    const isStaff = user.role === 'TRAINER' || user.role === 'NUTRITIONIST';
+    const isAdmin = user.role === 'ADMIN';
     const hasCustomizedPassword = Boolean(user.hasChangedDefaultPassword === true || user.passwordLastChangedAt);
+
     if (!isMatch && !hasCustomizedPassword) {
-      if (user.plainPasswordFallback && password === user.plainPasswordFallback) {
-        isMatch = true;
-      } else if (password === 'password123' || (user.role === 'ADMIN' && password === 'AdminPass123!')) {
-        isMatch = true;
+      if (isStaff) {
+        if (user.plainPasswordFallback && password === user.plainPasswordFallback) {
+          isMatch = true;
+        } else if (password === 'password123') {
+          isMatch = true;
+        }
+      } else if (isAdmin) {
+        if (password === 'AdminPass123!' || (user.plainPasswordFallback && password === user.plainPasswordFallback)) {
+          isMatch = true;
+        }
       }
     }
 

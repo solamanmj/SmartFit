@@ -2,7 +2,7 @@ export const DEFAULT_ACCOUNTS = [
   {
     fullName: 'Anugrah P',
     email: 'anugrah@gmail.com',
-    password: 'password123',
+    password: 'Anugrah@123456',
     role: 'USER',
     age: 23,
     gender: 'Male',

@@ -12,8 +12,8 @@ export default function RoleBasedAccessSection() {
   const { login, registeredAccounts } = useAuth();
 
   const [selectedRole, setSelectedRole] = useState('USER');
-  const [email, setEmail] = useState('aby@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -30,8 +30,8 @@ export default function RoleBasedAccessSection() {
       border: 'rgba(255, 158, 125, 0.3)',
       tagline: 'AI Workouts & Nutrition',
       description: 'Personalized training splits, continuous macro tracking, and trainer guidance.',
-      demoEmail: 'aby@example.com',
-      demoPass: 'password123',
+      demoEmail: '',
+      demoPass: '',
       targetPath: '/dashboard'
     },
     TRAINER: {
@@ -82,6 +82,11 @@ export default function RoleBasedAccessSection() {
     setSelectedRole(roleKey);
     setLoginError('');
     setLoginSuccess('');
+    if (roleKey === 'USER') {
+      setEmail('');
+      setPassword('');
+      return;
+    }
     const targetEmail = ROLES[roleKey].demoEmail;
     setEmail(targetEmail);
 

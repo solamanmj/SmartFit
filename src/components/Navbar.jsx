@@ -80,34 +80,72 @@ export default function Navbar() {
           </li>
           {user ? (
             <>
-              <li>
-                <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
-                  Dashboard
-                </Link>
-              </li>
-              <li>
-                <Link to="/workout" className={`nav-link ${location.pathname === '/workout' ? 'active' : ''}`}>
-                  Workouts
-                </Link>
-              </li>
-              <li>
-                <Link to="/nutrition" className={`nav-link ${location.pathname === '/nutrition' ? 'active' : ''}`}>
-                  Nutrition
-                </Link>
-              </li>
-              <li>
-                <Link to="/progress" className={`nav-link ${location.pathname === '/progress' ? 'active' : ''}`}>
-                  Progress
-                </Link>
-              </li>
-              <li>
-                <Link to="/challenges" className={`nav-link ${location.pathname === '/challenges' ? 'active' : ''}`}>
-                  Challenges
-                </Link>
-              </li>
+              {user.role?.toUpperCase() === 'TRAINER' && (
+                <li>
+                  <Link to="/trainer-dashboard" className={`nav-link ${location.pathname === '/trainer-dashboard' ? 'active' : ''}`} style={{ color: '#FF7043', fontWeight: 700 }}>
+                    🏋️ Trainer Portal
+                  </Link>
+                </li>
+              )}
+              {user.role?.toUpperCase() === 'NUTRITIONIST' && (
+                <li>
+                  <Link to="/nutritionist-dashboard" className={`nav-link ${location.pathname === '/nutritionist-dashboard' ? 'active' : ''}`} style={{ color: '#10B981', fontWeight: 700 }}>
+                    🥗 Nutrition Portal
+                  </Link>
+                </li>
+              )}
+              {user.role?.toUpperCase() === 'ADMIN' && (
+                <li>
+                  <Link to="/admin" className={`nav-link ${location.pathname.startsWith('/admin') ? 'active' : ''}`} style={{ color: '#C084FC', fontWeight: 700 }}>
+                    🛡️ Admin Console
+                  </Link>
+                </li>
+              )}
+              {(!user.role || user.role === 'USER') && (
+                <>
+                  <li>
+                    <Link to="/dashboard" className={`nav-link ${location.pathname === '/dashboard' ? 'active' : ''}`}>
+                      Dashboard
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/workout-studio" className={`nav-link ${location.pathname === '/workout-studio' ? 'active' : ''}`} style={{ color: 'var(--peach-primary)', fontWeight: 800 }}>
+                      ⚡ 3D Studio
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/workout" className={`nav-link ${location.pathname === '/workout' ? 'active' : ''}`}>
+                      Workouts
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/nutrition" className={`nav-link ${location.pathname === '/nutrition' ? 'active' : ''}`}>
+                      Nutrition
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/progress" className={`nav-link ${location.pathname === '/progress' ? 'active' : ''}`}>
+                      Progress
+                    </Link>
+                  </li>
+                  <li>
+                    <Link 
+                      to="/supplements" 
+                      className={`nav-link ${location.pathname === '/supplements' || location.pathname === '/challenges' ? 'active' : ''}`}
+                    >
+                      Supplements
+                    </Link>
+                  </li>
+                </>
+              )}
             </>
           ) : (
             <>
+              <li>
+                <a href="#role-access" onClick={(e) => handleSectionClick(e, 'role-access')} className="nav-link" style={{ color: 'var(--peach-primary)', fontWeight: 600 }}>
+                  Role Access
+                </a>
+              </li>
               <li>
                 <a href="#why-smartfit" onClick={(e) => handleSectionClick(e, 'why-smartfit')} className="nav-link">
                   Features
@@ -175,11 +213,31 @@ export default function Navbar() {
           <Link to="/" onClick={handleHomeClick} className="nav-link">Home</Link>
           {user ? (
             <>
-              <Link to="/dashboard" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
-              <Link to="/workout" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Workouts</Link>
-              <Link to="/nutrition" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Nutrition</Link>
-              <Link to="/progress" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Progress</Link>
-              <Link to="/challenges" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Challenges</Link>
+              {user.role?.toUpperCase() === 'TRAINER' && (
+                <Link to="/trainer-dashboard" className="nav-link" onClick={() => setMobileMenuOpen(false)} style={{ color: '#FF7043', fontWeight: 700 }}>
+                  🏋️ Trainer Portal
+                </Link>
+              )}
+              {user.role?.toUpperCase() === 'NUTRITIONIST' && (
+                <Link to="/nutritionist-dashboard" className="nav-link" onClick={() => setMobileMenuOpen(false)} style={{ color: '#10B981', fontWeight: 700 }}>
+                  🥗 Nutrition Portal
+                </Link>
+              )}
+              {user.role?.toUpperCase() === 'ADMIN' && (
+                <Link to="/admin" className="nav-link" onClick={() => setMobileMenuOpen(false)} style={{ color: '#C084FC', fontWeight: 700 }}>
+                  🛡️ Admin Console
+                </Link>
+              )}
+              {(!user.role || user.role === 'USER') && (
+                <>
+                  <Link to="/dashboard" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Dashboard</Link>
+                  <Link to="/workout-studio" className="nav-link" onClick={() => setMobileMenuOpen(false)} style={{ color: 'var(--peach-primary)', fontWeight: 800 }}>⚡ 3D Studio</Link>
+                  <Link to="/workout" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Workouts</Link>
+                  <Link to="/nutrition" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Nutrition</Link>
+                  <Link to="/progress" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Progress</Link>
+                  <Link to="/supplements" className="nav-link" onClick={() => setMobileMenuOpen(false)}>Supplements</Link>
+                </>
+              )}
               <Link to="/profile" className="btn-primary" onClick={() => setMobileMenuOpen(false)}>Profile Settings</Link>
               <button onClick={handleLogout} className="btn-secondary" style={{ color: '#ff9e9e' }}>
                 <LogOut size={16} />

@@ -13,8 +13,11 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
@@ -43,7 +46,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = new User(email, "", Collections.emptyList());
+            String role = "USER";
+            try {
+                Optional<com.smartfit.model.User> userOpt = userRepository.findByEmail(email);
+                if (userOpt.isPresent() && userOpt.get().getRole() != null) {
+                    role = userOpt.get().getRole();
+                }
+            } catch (Exception e) {
+                // Fallback role logic if database is unavailable
+                if (email.equalsIgnoreCase("admin@smartfit.com")) {
+                    role = "ADMIN";
+                }
+            }
+
+            List<SimpleGrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
+            UserDetails userDetails = new User(email, "", authorities);
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
             authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));

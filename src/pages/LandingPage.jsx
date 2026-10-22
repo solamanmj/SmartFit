@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Hero from '../components/Hero';
+import RoleBasedAccessSection from '../components/RoleBasedAccessSection';
 import Features from '../components/Features';
 import HowItWorks from '../components/HowItWorks';
 import CTA from '../components/CTA';
@@ -21,7 +22,10 @@ export default function LandingPage() {
 
   const handleGetStartedClick = () => {
     if (user) {
-      navigate('/dashboard');
+      if (user.role === 'TRAINER') navigate('/trainer-dashboard');
+      else if (user.role === 'NUTRITIONIST') navigate('/nutritionist-dashboard');
+      else if (user.role === 'ADMIN') navigate('/admin');
+      else navigate('/dashboard');
     } else {
       navigate('/register');
     }
@@ -38,22 +42,25 @@ export default function LandingPage() {
         onScrollToFeatures={scrollToFeatures}
       />
 
-      {/* 3. FEATURES (WHY SMARTFIT?) */}
+      {/* 3. ROLE-BASED ACCESS & LOGIN SECTION */}
+      <RoleBasedAccessSection />
+
+      {/* 4. FEATURES (WHY SMARTFIT?) */}
       <Features 
         onSelectFeature={(feature) => setSelectedFeature(feature)} 
       />
 
-      {/* 4. HOW IT WORKS */}
+      {/* 5. HOW IT WORKS */}
       <HowItWorks 
         onOpenGetStarted={handleGetStartedClick} 
       />
 
-      {/* 5. CTA */}
+      {/* 6. CTA */}
       <CTA 
         onOpenGetStarted={handleGetStartedClick} 
       />
 
-      {/* 6. FOOTER */}
+      {/* 7. FOOTER */}
       <Footer />
 
       {/* FEATURE DETAIL MODAL */}
@@ -64,4 +71,3 @@ export default function LandingPage() {
     </div>
   );
 }
-

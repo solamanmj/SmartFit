@@ -12,7 +12,7 @@ export default function AdminSidebar() {
 
   const handleLogout = () => {
     logout();
-    navigate('/admin/login');
+    window.location.href = '/';
   };
 
   const navItems = [

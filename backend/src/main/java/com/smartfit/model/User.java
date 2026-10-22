@@ -44,7 +44,19 @@ public class User {
     // 9. Medical Conditions / Past Injuries
     private String medicalConditions;
 
-    // User Role (USER / ADMIN)
+    private java.util.Map<String, String> assignedTrainer = new java.util.HashMap<>();
+    private java.util.Map<String, String> assignedNutritionist = new java.util.HashMap<>();
+    private java.util.List<String> allergies = new java.util.ArrayList<>();
+    private java.util.List<String> intolerances = new java.util.ArrayList<>();
+    private java.util.List<String> dislikedFoods = new java.util.ArrayList<>();
+    private java.util.List<String> culturalRestrictions = new java.util.ArrayList<>();
+    private java.util.List<String> clinicianAdvisedRestrictions = new java.util.ArrayList<>();
+    private String foodBudget = "Standard";
+    private String cookingFacilities = "Full Kitchen";
+    private String foodAvailability = "Urban Fresh Supermarket";
+    private String scheduleConstraints = "Standard 9-5 work hours";
+
+    // User Role (USER / ADMIN / NUTRITIONIST / TRAINER)
     private String role = "USER";
 
     // Active Session & Login Tracking in MongoDB
@@ -228,4 +240,37 @@ public class User {
 
         return Math.min(100, bmiScore + actScore + streakBonus + healthScore);
     }
+
+    public java.util.Map<String, String> getAssignedTrainer() { return assignedTrainer; }
+    public void setAssignedTrainer(java.util.Map<String, String> assignedTrainer) { this.assignedTrainer = assignedTrainer; }
+
+    public java.util.Map<String, String> getAssignedNutritionist() { return assignedNutritionist; }
+    public void setAssignedNutritionist(java.util.Map<String, String> assignedNutritionist) { this.assignedNutritionist = assignedNutritionist; }
+
+    public java.util.List<String> getAllergies() { return allergies; }
+    public void setAllergies(java.util.List<String> allergies) { this.allergies = allergies; }
+
+    public java.util.List<String> getIntolerances() { return intolerances; }
+    public void setIntolerances(java.util.List<String> intolerances) { this.intolerances = intolerances; }
+
+    public java.util.List<String> getDislikedFoods() { return dislikedFoods; }
+    public void setDislikedFoods(java.util.List<String> dislikedFoods) { this.dislikedFoods = dislikedFoods; }
+
+    public java.util.List<String> getCulturalRestrictions() { return culturalRestrictions; }
+    public void setCulturalRestrictions(java.util.List<String> culturalRestrictions) { this.culturalRestrictions = culturalRestrictions; }
+
+    public java.util.List<String> getClinicianAdvisedRestrictions() { return clinicianAdvisedRestrictions; }
+    public void setClinicianAdvisedRestrictions(java.util.List<String> clinicianAdvisedRestrictions) { this.clinicianAdvisedRestrictions = clinicianAdvisedRestrictions; }
+
+    public String getFoodBudget() { return foodBudget; }
+    public void setFoodBudget(String foodBudget) { this.foodBudget = foodBudget; }
+
+    public String getCookingFacilities() { return cookingFacilities; }
+    public void setCookingFacilities(String cookingFacilities) { this.cookingFacilities = cookingFacilities; }
+
+    public String getFoodAvailability() { return foodAvailability; }
+    public void setFoodAvailability(String foodAvailability) { this.foodAvailability = foodAvailability; }
+
+    public String getScheduleConstraints() { return scheduleConstraints; }
+    public void setScheduleConstraints(String scheduleConstraints) { this.scheduleConstraints = scheduleConstraints; }
 }

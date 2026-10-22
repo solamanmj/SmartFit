@@ -7,10 +7,13 @@ import {
   Sparkles, User, Trash2
 } from 'lucide-react';
 import { fetchAllRegisteredUsersApi, deleteUserApi } from '../services/api';
+import { fetchAdminTrainersApi, fetchAdminNutritionistsApi } from '../services/adminApi';
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const [usersList, setUsersList] = useState([]);
+  const [trainersList, setTrainersList] = useState([]);
+  const [nutritionistsList, setNutritionistsList] = useState([]);
   const [workoutLogsList, setWorkoutLogsList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -36,18 +39,18 @@ export default function AdminDashboard() {
   const loadAdminData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch all registered users
-      const usersData = await fetchAllRegisteredUsersApi();
+      // 1. Fetch users, trainers, nutritionists in parallel
+      const [usersData, trainersData, nutritionistsData] = await Promise.all([
+        fetchAllRegisteredUsersApi(),
+        fetchAdminTrainersApi(),
+        fetchAdminNutritionistsApi()
+      ]);
+
       if (Array.isArray(usersData) && usersData.length > 0) {
         setUsersList(usersData);
-      } else {
-        setUsersList([
-          { fullName: 'Alex Morgan', email: 'alex@example.com', age: 26, gender: 'Male', height: 178, weight: 75, fitnessGoal: 'Muscle Building', dietaryPreference: 'Standard Balanced', role: 'USER' },
-          { fullName: 'John Doe', email: 'john@example.com', age: 21, gender: 'Male', height: 175, weight: 70, fitnessGoal: 'Weight Loss', dietaryPreference: 'Vegetarian', role: 'USER' },
-          { fullName: 'Aby Thomas', email: 'aby@example.com', age: 27, gender: 'Male', height: 177, weight: 74, fitnessGoal: 'Muscle Building', dietaryPreference: 'Standard Balanced', role: 'USER' },
-          { fullName: 'Sruthy Varghese', email: 'sruthy@example.com', age: 25, gender: 'Female', height: 163, weight: 56, fitnessGoal: 'Fat Loss & Toning', dietaryPreference: 'Vegetarian', role: 'USER' }
-        ]);
       }
+      if (Array.isArray(trainersData)) setTrainersList(trainersData);
+      if (Array.isArray(nutritionistsData)) setNutritionistsList(nutritionistsData);
 
       // 2. Fetch all workout logs
       const logsRes = await fetch('http://localhost:8081/api/workouts/all-logs');
@@ -212,19 +215,17 @@ export default function AdminDashboard() {
                   <tr style={{ borderBottom: '1px solid var(--glass-border)', color: 'var(--peach-soft)' }}>
                     <th style={{ padding: '14px' }}>User Name</th>
                     <th style={{ padding: '14px' }}>Email Address</th>
-                    <th style={{ padding: '14px' }}>Biometrics</th>
-                    <th style={{ padding: '14px' }}>Fitness Goal</th>
-                    <th style={{ padding: '14px' }}>Dietary Preference</th>
-                    <th style={{ padding: '14px' }}>Target kcal</th>
+                    <th style={{ padding: '14px' }}>Biometrics & Goal</th>
+                    <th style={{ padding: '14px' }}>Assigned Trainer</th>
+                    <th style={{ padding: '14px' }}>Assigned Nutritionist</th>
                     <th style={{ padding: '14px' }}>System Role</th>
-                    <th style={{ padding: '14px' }}>Status</th>
-                    <th style={{ padding: '14px' }}>Action / Manage</th>
+                    <th style={{ padding: '14px' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={9} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-subtle)' }}>
+                      <td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: 'var(--text-subtle)' }}>
                         No registered users found matching filter criteria.
                       </td>
                     </tr>
@@ -238,16 +239,96 @@ export default function AdminDashboard() {
                           {usr.email}
                         </td>
                         <td style={{ padding: '14px' }}>
-                          {usr.age || 26} yrs • {usr.gender || 'Male'} • {usr.height || 178}cm / {usr.weight || 75}kg
+                          <div style={{ fontWeight: 600, color: '#FFF' }}>{usr.fitnessGoal || 'Muscle Building'}</div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-subtle)' }}>
+                            {usr.age || 26} yrs • {usr.height || 178}cm / {usr.weight || 75}kg
+                          </div>
                         </td>
-                        <td style={{ padding: '14px', color: '#fff', fontWeight: 600 }}>
-                          {usr.fitnessGoal || 'Muscle Building'}
-                        </td>
+
+                        {/* Assigned Trainer Dropdown / Display */}
                         <td style={{ padding: '14px' }}>
-                          {usr.dietaryPreference || 'Standard Balanced'}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#FF7043' }}>
+                              🏋️ {usr.assignedTrainer?.name || 'Assigned Coach'}
+                            </span>
+                            <select 
+                              value={usr.assignedTrainer?.email || (trainersList[0]?.email || '')}
+                              onChange={async (e) => {
+                                const email = e.target.value;
+                                const selected = trainersList.find(t => t.email.toLowerCase() === email.toLowerCase()) || { fullName: 'Coach', specialization: 'Personal Trainer' };
+                                try {
+                                  await fetch('http://localhost:8081/api/admin/assign-trainer', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      userEmail: usr.email,
+                                      trainerEmail: email,
+                                      trainerName: selected.fullName,
+                                      specialization: selected.specialization
+                                    })
+                                  });
+                                  loadAdminData();
+                                } catch (err) {}
+                              }}
+                              style={{
+                                background: '#1d0718',
+                                border: '1px solid rgba(255,112,67,0.3)',
+                                borderRadius: '6px',
+                                padding: '4px 6px',
+                                color: '#FFF',
+                                fontSize: '0.75rem'
+                              }}
+                            >
+                              {trainersList.map(t => (
+                                <option key={t.email} value={t.email}>
+                                  {t.fullName} ({t.specialization})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </td>
-                        <td style={{ padding: '14px', fontWeight: 700, color: 'var(--peach-light)' }}>
-                          {usr.targetCalories ? `${usr.targetCalories} kcal` : '2,690 kcal'}
+
+                        {/* Assigned Nutritionist Dropdown / Display */}
+                        <td style={{ padding: '14px' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#10B981' }}>
+                              🥗 {usr.assignedNutritionist?.name || 'Assigned Dietitian'}
+                            </span>
+                            <select 
+                              value={usr.assignedNutritionist?.email || (nutritionistsList[0]?.email || '')}
+                              onChange={async (e) => {
+                                const email = e.target.value;
+                                const selected = nutritionistsList.find(n => n.email.toLowerCase() === email.toLowerCase()) || { fullName: 'Dietitian', qualification: 'Nutritionist' };
+                                try {
+                                  await fetch('http://localhost:8081/api/admin/assign-nutritionist', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                      userEmail: usr.email,
+                                      nutritionistEmail: email,
+                                      nutritionistName: selected.fullName,
+                                      qualification: selected.qualification || selected.specialization
+                                    })
+                                  });
+                                  loadAdminData();
+                                } catch (err) {}
+                              }}
+                              style={{
+                                background: '#1d0718',
+                                border: '1px solid rgba(16,185,129,0.3)',
+                                borderRadius: '6px',
+                                padding: '4px 6px',
+                                color: '#FFF',
+                                fontSize: '0.75rem'
+                              }}
+                            >
+                              {nutritionistsList.map(n => (
+                                <option key={n.email} value={n.email}>
+                                  {n.fullName} ({n.specialization || n.qualification})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
                         </td>
                         <td style={{ padding: '14px' }}>
                           <span style={{

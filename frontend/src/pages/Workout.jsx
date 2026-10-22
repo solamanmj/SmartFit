@@ -1,134 +1,440 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { 
-  Dumbbell, Zap, CheckCircle2, Flame, Clock, Play, RefreshCw, 
-  Award, ShieldAlert, Sparkles, Check, ChevronRight, Trophy, Bot, Target, Activity, X, Info, Calendar, Crown
+  Dumbbell, Zap, CheckCircle2, Flame, Clock, Play, 
+  Award, Sparkles, Check, ChevronRight, Trophy, Target, 
+  Activity, X, Info, ShieldCheck, User, RefreshCw, Calendar, ArrowRight, RotateCcw,
+  Lock, AlertCircle, HeartPulse, CheckSquare, ShieldAlert,
+  Sliders, FileText, CheckCheck, MessageSquare, ExternalLink, Shield, Send, Medal
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getConversationMessages, sendChatMessage } from '../services/chatService';
+import { 
+  fetchUserWorkoutProgressApi, 
+  completeWorkoutDayApi, 
+  resetWorkoutCycleApi,
+  fetchUserApprovedPlanApi,
+  requestAiWorkoutPlanApi,
+  logWorkoutSessionApi
+} from '../services/api';
+import VirtualCoachDemoModal from '../components/VirtualCoachDemoModal';
+
+// ============================================================================
+// DEFAULT PERIODIZATION PHASES & DATA DEFINITIONS
+// ============================================================================
+const DEFAULT_PHASES = [
+  { phase: '1', days: 'Days 1-7', title: 'Anatomical Adaptation', focus: 'Form mastery, neuromuscular priming, tendon conditioning' },
+  { phase: '2', days: 'Days 8-14', title: 'Volume Hypertrophy', focus: 'Increased time-under-tension & metabolic stress accumulation' },
+  { phase: '3', days: 'Days 15-21', title: 'Progressive Overload', focus: 'Heavier resistance loads, CNS recruitment, explosive concentric drive' },
+  { phase: '4', days: 'Days 22-30', title: 'Peak Strength & Titan Test', focus: 'Max power output, functional mastery & Day 30 milestone test' }
+];
+
+const DEFAULT_PRESCRIPTION_META = {
+  prescriptionId: 'RX-30D-2026-MV78',
+  issuedDate: 'September 23, 2026',
+  approvalStatus: 'APPROVED_AND_ACTIVE',
+  targetGoal: 'Hypertrophy & Lean Muscle Mass',
+  equipmentProfile: 'Full Gym Access',
+  experienceTier: 'Intermediate',
+  coachNotes: 'Personalized 30-Day Periodized Protocol designed to maximize mechanical tension, progressive overload, and neuromuscular adaptation.',
+  phases: DEFAULT_PHASES
+};
+
+// ============================================================================
+// 30-DAY PERIODIZED COACH SPLIT BUILDER (DEFENSIVE GENERATOR)
+// ============================================================================
+const GENERATE_PERIODIZED_COACH_PLAN = ({ goal = 'Hypertrophy', equipment = 'Full Gym Access', experience = 'Intermediate' } = {}) => {
+  const plans = {};
+
+  const dailyFocuses = [
+    {
+      focus: 'Chest & Triceps Hypertrophy Overload',
+      target: 'Upper Chest, Sternal Pecs & Triceps',
+      rpe: '8.5 / 10',
+      duration: 45,
+      restHours: 24,
+      cues: 'Focus on 3-second controlled eccentrics. Squeeze pecs hard at lockout.',
+      exercises: [
+        { name: 'Incline Barbell Bench Press', sets: 4, reps: '8-10', weight: '75 kg', targetMuscle: 'Upper Chest', equip: 'Barbell & Bench', cals: 130, cue: 'Lower bar smoothly to clavicle line and press upward with power.' },
+        { name: 'Flat Dumbbell Chest Press', sets: 3, reps: '10-12', weight: '28 kg / arm', targetMuscle: 'Mid Pecs', equip: 'Dumbbells & Bench', cals: 110, cue: 'Keep shoulder blades retracted and elbows tucked at 45 degrees.' },
+        { name: 'Cable Standing Chest Flyes', sets: 3, reps: '12-15', weight: '16 kg / side', targetMuscle: 'Pectoralis Major', equip: 'Dual Cable Machine', cals: 90, cue: 'Hug a broad barrel and hold peak contraction for 1 full second.' },
+        { name: 'Overhead Cable Triceps Rope Extension', sets: 3, reps: '12-15', weight: '24 kg', targetMuscle: 'Triceps Long Head', equip: 'Cable Machine', cals: 80, cue: 'Keep upper arms motionless beside head, flare rope at extension.' },
+        { name: 'Dips / Weighted Dips', sets: 3, reps: '10-12', weight: 'Bodyweight + 10kg', targetMuscle: 'Lower Chest & Triceps', equip: 'Dip Station', cals: 85, cue: 'Lean forward slightly to prioritize chest fibers over shoulders.' }
+      ]
+    },
+    {
+      focus: 'Back Thickness, Lats & Biceps Pull Split',
+      target: 'Latissimus Dorsi, Rhomboids & Biceps',
+      rpe: '8.5 / 10',
+      duration: 45,
+      restHours: 24,
+      cues: 'Initiate every pull by depressing scapulae down before bending elbows.',
+      exercises: [
+        { name: 'Conventional Barbell Deadlifts', sets: 4, reps: '6-8', weight: '110 kg', targetMuscle: 'Posterior Chain & Lats', equip: 'Barbell', cals: 160, cue: 'Drive feet into floor, keep bar dragging along shins.' },
+        { name: 'Wide-Grip Lat Pulldowns', sets: 4, reps: '10-12', weight: '65 kg', targetMuscle: 'Upper Lats', equip: 'Cable Lat Machine', cals: 115, cue: 'Pull bar to collarbone while driving elbows straight down.' },
+        { name: 'Chest-Supported Dumbbell Rows', sets: 3, reps: '10-12', weight: '24 kg / arm', targetMuscle: 'Mid-Back Rhomboids', equip: 'Incline Bench & DBs', cals: 105, cue: 'Pull elbows toward hip crease to maximally activate lower lats.' },
+        { name: 'Standing EZ-Bar Bicep Curls', sets: 3, reps: '10-12', weight: '32 kg', targetMuscle: 'Biceps Brachii', equip: 'EZ Curl Bar', cals: 80, cue: 'Pin elbows to torso, do not use swinging torso momentum.' },
+        { name: 'Incline Dumbbell Hammer Curls', sets: 3, reps: '12-15', weight: '16 kg / arm', targetMuscle: 'Brachialis & Forearms', equip: 'Dumbbells', cals: 75, cue: 'Keep palms facing inward throughout the complete curl arc.' }
+      ]
+    },
+    {
+      focus: 'Legs Quad Dominance & Core Power Split',
+      target: 'Quadriceps, Adductors & Rectus Abdominis',
+      rpe: '9.0 / 10',
+      duration: 50,
+      restHours: 24,
+      cues: 'Hit parallel depth on all squat patterns while bracing 360 degrees.',
+      exercises: [
+        { name: '45-Degree Leg Press', sets: 4, reps: '10-12', weight: '180 kg', targetMuscle: 'Quad Vastus Lateralis', equip: 'Leg Press Machine', cals: 135, cue: 'Place feet shoulder width, lower sled without letting pelvis lift.' },
+        { name: 'Walking Dumbbell Lunges', sets: 3, reps: '12 Reps / Leg', weight: '18 kg / arm', targetMuscle: 'Quads & Unilateral Balance', equip: 'Dumbbells', cals: 120, cue: 'Take long strides, lowering trailing knee 1 inch off floor.' },
+        { name: 'Leg Extensions (Drop Set on final)', sets: 3, reps: '15 Reps', weight: '55 kg', targetMuscle: 'Quad Teardrop', equip: 'Leg Extension Machine', cals: 80, cue: 'Pause for 1 second at top squeeze and lower slowly for 3 seconds.' },
+        { name: 'Hanging Leg Raises', sets: 3, reps: '15 Reps', weight: 'Bodyweight', targetMuscle: 'Lower Abs', equip: 'Pull-Up Bar', cals: 65, cue: 'Bring knees to chest smoothly without swinging.' }
+      ]
+    },
+    {
+      focus: 'Shoulders 3D Delts, Traps & Core Sculpt',
+      target: 'Anterior, Lateral & Rear Deltoids, Traps',
+      rpe: '8.0 / 10',
+      duration: 45,
+      restHours: 24,
+      cues: 'Lead with elbows on lateral raises and maintain depressed traps on overhead presses.',
+      exercises: [
+        { name: 'Seated Dumbbell Shoulder Press', sets: 4, reps: '8-10', weight: '24 kg / arm', targetMuscle: 'Anterior Deltoids', equip: 'Dumbbells & Bench', cals: 110, cue: 'Press up in slight arch bringing dumbbells close together at top.' },
+        { name: 'Standing Cable Lateral Raises', sets: 4, reps: '12-15', weight: '10 kg / side', targetMuscle: 'Side Lateral Delts', equip: 'Cable Machine', cals: 85, cue: 'Pull handle across body raising arm to horizontal shoulder line.' },
+        { name: 'Face Pulls with External Rotation', sets: 4, reps: '15 Reps', weight: '28 kg', targetMuscle: 'Rear Delts & Rotator Cuff', equip: 'Cable & Rope', cals: 80, cue: 'Pull rope toward eye level while spreading hands apart.' },
+        { name: 'Heavy Barbell Shrugs', sets: 3, reps: '12-15', weight: '90 kg', targetMuscle: 'Upper Trapezius', equip: 'Barbell', cals: 85, cue: 'Elevate shoulders directly toward ears, hold 2s squeeze.' },
+        { name: 'Ab Wheel Rollouts', sets: 3, reps: '12 Reps', weight: 'Bodyweight', targetMuscle: 'Deep Core Bracing', equip: 'Ab Wheel', cals: 65, cue: 'Roll out under control and pull back using abdominal contraction.' }
+      ]
+    },
+    {
+      focus: 'Posterior Chain Glute & Hamstring Hypertrophy',
+      target: 'Hamstrings, Gluteus Maximus & Calves',
+      rpe: '8.5 / 10',
+      duration: 45,
+      restHours: 24,
+      cues: 'Push hips backward until deep hamstring stretch is loaded.',
+      exercises: [
+        { name: 'Romanian Dumbbell Deadlifts (RDL)', sets: 4, reps: '10 Reps', weight: '32 kg / arm', targetMuscle: 'Hamstrings & Glutes', equip: 'Dumbbells', cals: 135, cue: 'Keep slight knee bend and push hips back with rigid spine.' },
+        { name: 'Barbell Glute Hip Thrusts', sets: 4, reps: '10-12', weight: '120 kg', targetMuscle: 'Gluteus Maximus', equip: 'Bench & Barbell', cals: 140, cue: 'Drive through heels, squeeze glutes at full hip extension.' },
+        { name: 'Lying Leg Hamstring Curls', sets: 3, reps: '12 Reps', weight: '50 kg', targetMuscle: 'Hamstring Biceps Femoris', equip: 'Hamstring Machine', cals: 80, cue: 'Curl heel toward glute without arching lumbar spine.' },
+        { name: 'Standing Calf Raises', sets: 4, reps: '15-20', weight: '70 kg', targetMuscle: 'Gastrocnemius', equip: 'Calf Machine', cals: 65, cue: 'Full stretch at bottom, explosive rise on balls of feet.' },
+        { name: 'Russian Plate Twists', sets: 3, reps: '20 Reps', weight: '10 kg Plate', targetMuscle: 'Obliques', equip: 'Weight Plate', cals: 60, cue: 'Rotate torso side to side with elevated feet.' }
+      ]
+    },
+    {
+      focus: 'Functional Conditioning, Grip Strength & Core Endurance',
+      target: 'Full Body Cardiovascular & Core Stabilizers',
+      rpe: '8.5 / 10',
+      duration: 40,
+      restHours: 24,
+      cues: 'Sustain continuous pacing with minimal transition latency.',
+      exercises: [
+        { name: 'Kettlebell Russian Swings', sets: 4, reps: '20 Reps', weight: '24 kg', targetMuscle: 'Hips & Posterior Chain', equip: 'Kettlebell', cals: 140, cue: 'Explosive hip hinge driving kettlebell to chest height.' },
+        { name: 'Dumbbell Renegade Rows in Plank', sets: 3, reps: '12 Reps / Arm', weight: '16 kg / arm', targetMuscle: 'Core & Upper Back', equip: 'Dumbbells', cals: 110, cue: 'Row weight without rotating hips from floor.' },
+        { name: 'Heavy Farmer Walk Carries', sets: 3, reps: '50 Meters', weight: '30 kg / arm', targetMuscle: 'Grip & Traps', equip: 'Heavy Dumbbells', cals: 100, cue: 'Walk with tall military posture and brace abs tightly.' },
+        { name: 'Medicine Ball Slams', sets: 4, reps: '15 Reps', weight: '10 kg Ball', targetMuscle: 'Explosive Core & Lats', equip: 'Medicine Ball', cals: 95, cue: 'Raise ball overhead and slam violently into ground.' },
+        { name: 'Weighted Plank Hold', sets: 3, reps: '60 Seconds', weight: '15 kg Plate', targetMuscle: 'Isometric Core', equip: 'Plate', cals: 60, cue: 'Maintain straight alignment from shoulders to heels.' }
+      ]
+    },
+    {
+      focus: 'Active Mobility, Tendon Decompression & Recovery',
+      target: 'Fascial Tissue, Tendon Recovery & Nervous System',
+      rpe: '5.0 / 10',
+      duration: 35,
+      restHours: 24,
+      cues: 'Breathe deeply through nose to down-regulate sympathetic nervous system.',
+      exercises: [
+        { name: 'Deep Hip Flexor & Couch Stretch', sets: 3, reps: '60 Sec / Side', weight: 'Bodyweight', targetMuscle: 'Psoas & Quads', equip: 'Mat / Wall', cals: 40, cue: 'Tuck pelvis under and sink gently forward.' },
+        { name: 'Thoracic Spine Foam Rolling & Extension', sets: 1, reps: '8 Mins', weight: 'Bodyweight', targetMuscle: 'Upper Spine & Lats', equip: 'Foam Roller', cals: 35, cue: 'Roll slowly from mid back to shoulders with arms crossed.' },
+        { name: 'Pigeon Pose Glute Opener', sets: 3, reps: '60 Sec / Leg', weight: 'Bodyweight', targetMuscle: 'Piriformis & Glutes', equip: 'Mat', cals: 35, cue: 'Fold upper body forward over bent front leg.' },
+        { name: 'World Greatest Stretch Flow', sets: 3, reps: '5 Reps / Side', weight: 'Bodyweight', targetMuscle: 'Ankles, Hips & T-Spine', equip: 'Mat', cals: 45, cue: 'Lunge forward, place elbow to floor, and rotate hand to ceiling.' },
+        { name: 'Box Breathing Diaphragmatic Protocol', sets: 1, reps: '5 Mins', weight: 'Recovery', targetMuscle: 'Vagus Nerve Reset', equip: 'Mat', cals: 20, cue: 'Inhale 4s, hold 4s, exhale 4s, hold 4s.' }
+      ]
+    }
+  ];
+
+  for (let day = 1; day <= 30; day++) {
+    const templateIndex = (day - 1) % dailyFocuses.length;
+    const base = dailyFocuses[templateIndex];
+    const weekNumber = Math.ceil(day / 7);
+
+    const volumeMultiplier = 1 + (weekNumber - 1) * 0.05;
+    const isMasterDay = day === 30;
+    const isRestDay = (day % 7 === 0);
+
+    let phaseName = 'Phase 1: Anatomical Adaptation';
+    if (weekNumber === 2) phaseName = 'Phase 2: Volume Hypertrophy';
+    if (weekNumber === 3) phaseName = 'Phase 3: Progressive Overload';
+    if (weekNumber >= 4) phaseName = 'Phase 4: Peak Strength & Titan Test';
+
+    plans[day] = {
+      dayNumber: day,
+      dayTitle: isMasterDay ? 'Day 30: Grand Master Milestone Peak Workout' : `Day ${day}: ${base.focus}`,
+      weekLabel: `Week ${weekNumber} • Day ${day} of 30`,
+      phaseLabel: phaseName,
+      targetMuscle: base.target,
+      rpeTarget: isMasterDay ? '9.5 / 10 (Peak)' : base.rpe,
+      durationMins: base.duration,
+      restHours: isRestDay ? 24 : base.restHours,
+      isRestDay,
+      notes: isMasterDay 
+        ? '30-Day Master Milestone: Give 100% effort to record your peak strength metrics before restarting the cycle!'
+        : `${base.cues} (Week ${weekNumber} Progressive Overload Calibration active).`,
+      exercises: (base.exercises || []).map((ex, exIdx) => ({
+        ...ex,
+        id: `d${day}-ex${exIdx + 1}`,
+        estimatedCaloriesBurned: Math.round((ex.cals || 90) * volumeMultiplier)
+      }))
+    };
+  }
+
+  return plans;
+};
 
 export default function Workout() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
-  // Day Progression Engine State (Day 1 to Day 7)
-  const [currentDay, setCurrentDay] = useState(() => {
-    const savedDay = localStorage.getItem('smartfit_workout_day');
-    return savedDay ? parseInt(savedDay, 10) : 1;
+  const location = useLocation();
+
+  const userEmail = (user?.email || 'default_user').trim().toLowerCase();
+
+  // Safely resolve assigned coach profile
+  const assignedCoach = (user?.assignedTrainer && typeof user.assignedTrainer === 'object') ? {
+    name: user.assignedTrainer.name || 'Coach Marcus Vance',
+    role: user.assignedTrainer.specialization || 'Certified Strength & Conditioning Specialist (CSCS)',
+    certifications: user.assignedTrainer.credentials || 'NASM-CPT, CSCS, Precision Nutrition L2',
+    experience: '9+ Years Elite Coaching',
+    avatar: user.assignedTrainer.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    verificationCode: 'CSCS-78492-VANCE'
+  } : {
+    name: 'Coach Marcus Vance',
+    role: 'Certified Strength & Conditioning Specialist (CSCS)',
+    certifications: 'NASM-CPT, CSCS, Precision Nutrition L2',
+    experience: '9+ Years Elite Coaching',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    verificationCode: 'CSCS-78492-VANCE'
+  };
+
+  // Safely load or initialize Prescription Meta
+  const [prescriptionMeta, setPrescriptionMeta] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`smartfit_${userEmail}_workout_prescription`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed === 'object') {
+          return {
+            ...DEFAULT_PRESCRIPTION_META,
+            ...parsed,
+            phases: Array.isArray(parsed.phases) && parsed.phases.length > 0 ? parsed.phases : DEFAULT_PHASES
+          };
+        }
+      }
+      return DEFAULT_PRESCRIPTION_META;
+    } catch (e) {
+      return DEFAULT_PRESCRIPTION_META;
+    }
   });
 
-  const [category, setCategory] = useState('Full Body');
-  const [exercises, setExercises] = useState([]);
-  const [completedState, setCompletedState] = useState({});
-  const [loading, setLoading] = useState(true);
+  // 30-Day Progressive Plan Repository
+  const [allPlans, setAllPlans] = useState(() => {
+    return GENERATE_PERIODIZED_COACH_PLAN({
+      goal: 'Hypertrophy',
+      equipment: prescriptionMeta?.equipmentProfile || 'Full Gym Access',
+      experience: prescriptionMeta?.experienceTier || 'Intermediate'
+    });
+  });
+
+  // Completed Days History Map { 1: true, 2: true ... } scoped per user
+  const [completedDays, setCompletedDays] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`smartfit_${userEmail}_completed_days_map`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  // Timestamps of completions { 1: 1710000000000, ... }
+  const [completedTimestamps, setCompletedTimestamps] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`smartfit_${userEmail}_completed_days_timestamps`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  // Calculate highest unlocked day (Sequential progression)
+  const completedCount = Object.keys(completedDays).filter(d => completedDays[d]).length;
+  const maxUnlockedDay = Math.min(30, completedCount + 1);
+
+  // Active Day Tracker (defaults to Day 1 for new user or from query param / storage)
+  const [activeDay, setActiveDay] = useState(() => {
+    const params = new URLSearchParams(location.search);
+    const dayParam = params.get('day');
+    if (dayParam) {
+      const parsedParam = parseInt(dayParam, 10);
+      if (!isNaN(parsedParam) && parsedParam >= 1 && parsedParam <= 30) {
+        return Math.min(maxUnlockedDay, parsedParam);
+      }
+    }
+    const saved = localStorage.getItem(`smartfit_${userEmail}_workout_active_day`);
+    const parsed = saved ? parseInt(saved, 10) : 1;
+    return Math.min(maxUnlockedDay, Math.max(1, parsed));
+  });
+
+  const [completedState, setCompletedState] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`smartfit_${userEmail}_sets_day_${activeDay}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
   const [logging, setLogging] = useState(false);
+  const [alertBanner, setAlertBanner] = useState('');
   const [logSuccess, setLogSuccess] = useState(null);
-  
-  // ML Recommendation State
-  const [mlRecommendation, setMlRecommendation] = useState(null);
-  const [mlLoading, setMlLoading] = useState(true);
 
   // Rest Timer state
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [timerActive, setTimerActive] = useState(false);
 
-  // Animated Coach Demo Modal State
+  // Modals
   const [demoExercise, setDemoExercise] = useState(null);
-
-  // Session Completion Achievement Modal State
   const [achievementData, setAchievementData] = useState(null);
+  const [cycleCompletedModal, setCycleCompletedModal] = useState(false);
+  const [tenDayMilestoneModal, setTenDayMilestoneModal] = useState(false);
+  const [lockedDayModal, setLockedDayModal] = useState(null);
+  const [prescriptionModal, setPrescriptionModal] = useState(false);
+  const [calibrateModal, setCalibrateModal] = useState(false);
+  const [calibrating, setCalibrating] = useState(false);
+  const [coachChatOpen, setCoachChatOpen] = useState(false);
 
-  // 7-Day Master Program Completion Modal State
-  const [weeklyCompletionData, setWeeklyCompletionData] = useState(null);
+  // Server Workout Plan (AI Generated & Trainer Approved)
+  const [serverWorkoutPlan, setServerWorkoutPlan] = useState(null);
+  const [aiGenModalOpen, setAiGenModalOpen] = useState(false);
+  const [requestingAiPlan, setRequestingAiPlan] = useState(false);
+  const [aiFormFields, setAiFormFields] = useState({
+    fitnessGoal: 'Hypertrophy',
+    fitnessLevel: 'Intermediate',
+    daysPerWeek: 4,
+    equipment: 'Full Gym Access',
+    injuryNotes: ''
+  });
 
-  // 7-DAY AUTOMATED PROGRESSION WORKOUT SPLITS
-  const DAY_PLANS = {
-    1: {
-      dayTitle: 'Day 1: Upper Body Push & Hypertrophy Split',
-      category: 'Upper Body',
-      exercises: [
-        { id: 'd1-ex1', name: 'Incline Dumbbell Bench Press', sets: 4, reps: '10 Reps', targetMuscle: 'Upper Chest', equipmentNeeded: user?.workoutEquipment || 'Dumbbells / Bench', instructions: 'Press dumbbells upward at a 30 degree incline keeping wrists stacked over elbows.', estimatedCaloriesBurned: 120 },
-        { id: 'd1-ex2', name: 'Standing Dumbbell Shoulder Press', sets: 3, reps: '12 Reps', targetMuscle: 'Deltoids & Shoulders', equipmentNeeded: 'Dumbbells', instructions: 'Press weights overhead smoothly without arching lower back.', estimatedCaloriesBurned: 100 },
-        { id: 'd1-ex3', name: 'Cable / Dumbbell Chest Flyes', sets: 3, reps: '12 Reps', targetMuscle: 'Chest Pecs', equipmentNeeded: 'Cable / Dumbbells', instructions: 'Hug a broad barrel bringing weights together with slight elbow bend.', estimatedCaloriesBurned: 90 },
-        { id: 'd1-ex4', name: 'Triceps Overhead Extensions', sets: 3, reps: '15 Reps', targetMuscle: 'Triceps Long Head', equipmentNeeded: 'Dumbbell / Cable', instructions: 'Lower weight behind head and extend upward locking out elbow.', estimatedCaloriesBurned: 75 },
-        { id: 'd1-ex5', name: 'Push-Up Burnout Set', sets: 3, reps: '20 Reps', targetMuscle: 'Chest & Core', equipmentNeeded: 'Bodyweight', instructions: 'Keep body in rigid plank and push up explosively.', estimatedCaloriesBurned: 85 }
-      ]
-    },
-    2: {
-      dayTitle: 'Day 2: Lower Body Quads, Hamstrings & Core Split',
-      category: 'Full Body',
-      exercises: [
-        { id: 'd2-ex1', name: 'Barbell Back Squats', sets: 4, reps: '10 Reps', targetMuscle: 'Quadriceps & Glutes', equipmentNeeded: 'Barbell & Rack', instructions: 'Hinge hips back, keep chest tall, and squat to parallel.', estimatedCaloriesBurned: 140 },
-        { id: 'd2-ex2', name: 'Romanian Dumbbell Deadlifts', sets: 4, reps: '10 Reps', targetMuscle: 'Hamstrings & Glutes', equipmentNeeded: 'Dumbbells', instructions: 'Hinge at hips keeping spine flat until stretch is felt in hamstrings.', estimatedCaloriesBurned: 130 },
-        { id: 'd2-ex3', name: 'Bulgarian Split Squats', sets: 3, reps: '12 Reps / Leg', targetMuscle: 'Quads & Balance', equipmentNeeded: 'Bench & Dumbbells', instructions: 'Lower back knee toward floor with front knee stacked over ankle.', estimatedCaloriesBurned: 110 },
-        { id: 'd2-ex4', name: 'Standing Calf Raises', sets: 4, reps: '15 Reps', targetMuscle: 'Calves', equipmentNeeded: 'Bodyweight / Weight', instructions: 'Press up onto toes squeezing calves at top extension.', estimatedCaloriesBurned: 60 },
-        { id: 'd2-ex5', name: 'Plank Hold', sets: 3, reps: '60 Sec', targetMuscle: 'Core Abs', equipmentNeeded: 'Bodyweight', instructions: 'Maintain rigid straight line from head to heels.', estimatedCaloriesBurned: 55 }
-      ]
-    },
-    3: {
-      dayTitle: 'Day 3: Pull & Back Hypertrophy Split',
-      category: 'Upper Body',
-      exercises: [
-        { id: 'd3-ex1', name: 'Lat Pulldowns', sets: 4, reps: '10 Reps', targetMuscle: 'Lats & Upper Back', equipmentNeeded: 'Cable Machine', instructions: 'Pull bar down to upper chest while squeezing shoulder blades.', estimatedCaloriesBurned: 115 },
-        { id: 'd3-ex2', name: 'Seated Cable Rows', sets: 4, reps: '12 Reps', targetMuscle: 'Rhomboids & Mid-Back', equipmentNeeded: 'Cable Machine', instructions: 'Pull handles to navel squeezing shoulder blades together.', estimatedCaloriesBurned: 105 },
-        { id: 'd3-ex3', name: 'Dumbbell Shrugs', sets: 3, reps: '15 Reps', targetMuscle: 'Upper Trapezius', equipmentNeeded: 'Dumbbells', instructions: 'Shrug shoulders straight up toward ears and pause at peak.', estimatedCaloriesBurned: 70 },
-        { id: 'd3-ex4', name: 'Standing EZ-Bar Bicep Curls', sets: 3, reps: '12 Reps', targetMuscle: 'Biceps Brachii', equipmentNeeded: 'Barbell / Dumbbells', instructions: 'Curl bar up keeping elbows pinned to ribs without swinging.', estimatedCaloriesBurned: 80 },
-        { id: 'd3-ex5', name: 'Hammer Curls', sets: 3, reps: '12 Reps', targetMuscle: 'Brachialis & Forearms', equipmentNeeded: 'Dumbbells', instructions: 'Curl dumbbells with thumbs pointing upward.', estimatedCaloriesBurned: 75 }
-      ]
-    },
-    4: {
-      dayTitle: 'Day 4: Active Recovery & Yoga Mobility Protocol',
-      category: 'Core & Cardio',
-      exercises: [
-        { id: 'd4-ex1', name: 'Sun Salutation Flow', sets: 3, reps: '5 Mins', targetMuscle: 'Full Body Mobility', equipmentNeeded: 'Yoga Mat', instructions: 'Smooth transition from upward dog to downward dog with steady breathing.', estimatedCaloriesBurned: 70 },
-        { id: 'd4-ex2', name: 'Warrior II & Triangle Pose', sets: 3, reps: '45 Sec Hold', targetMuscle: 'Hip Flexors & Core', equipmentNeeded: 'Yoga Mat', instructions: 'Sink deep into lunging knee while stretching arms parallel to floor.', estimatedCaloriesBurned: 60 },
-        { id: 'd4-ex3', name: 'Cat-Cow Spine Stretches', sets: 3, reps: '10 Cycles', targetMuscle: 'Spinal Decompression', equipmentNeeded: 'Yoga Mat', instructions: 'Arch and round spine in sync with deep diaphragmatic breaths.', estimatedCaloriesBurned: 45 },
-        { id: 'd4-ex4', name: 'Pigeon Pose Hip Opener', sets: 3, reps: '60 Sec / Side', targetMuscle: 'Glute & Piriformis', equipmentNeeded: 'Yoga Mat', instructions: 'Fold torso forward over bent front leg feeling deep glute stretch.', estimatedCaloriesBurned: 50 },
-        { id: 'd4-ex5', name: 'Deep Breathing Meditation', sets: 1, reps: '5 Mins', targetMuscle: 'Nervous System Recovery', equipmentNeeded: 'Mat', instructions: 'Inhale 4s, hold 4s, exhale 6s to lower heart rate variability.', estimatedCaloriesBurned: 30 }
-      ]
-    },
-    5: {
-      dayTitle: 'Day 5: High-Intensity Cardio & Metabolic Conditioning',
-      category: 'Core & Cardio',
-      exercises: [
-        { id: 'd5-ex1', name: 'Sprinting Interval Bursts', sets: 5, reps: '1 Min Sprint / 1 Min Walk', targetMuscle: 'Cardiovascular System', equipmentNeeded: 'Treadmill / Track', instructions: 'Explosive all-out sprint followed by active walk recovery.', estimatedCaloriesBurned: 180 },
-        { id: 'd5-ex2', name: 'High-Knee Mountain Climbers', sets: 4, reps: '45 Sec', targetMuscle: 'Abs & Cardio', equipmentNeeded: 'Bodyweight', instructions: 'Rapid alternating knees in pushup position keeping core rigid.', estimatedCaloriesBurned: 130 },
-        { id: 'd5-ex3', name: 'Jump Rope Double-Unders', sets: 4, reps: '60 Sec', targetMuscle: 'Calves & Endurance', equipmentNeeded: 'Jump Rope', instructions: 'Keep elbows tucked and rotate rope quickly from wrists.', estimatedCaloriesBurned: 140 },
-        { id: 'd5-ex4', name: 'Full Burpees with Push-Up', sets: 3, reps: '15 Reps', targetMuscle: 'Total Body Metabolic', equipmentNeeded: 'Bodyweight', instructions: 'Drop to floor, complete push-up, jump up explosively with overhead clap.', estimatedCaloriesBurned: 150 },
-        { id: 'd5-ex5', name: 'Russian Twists with Weight', sets: 4, reps: '20 Reps', targetMuscle: 'Obliques & Core', equipmentNeeded: 'Weight Plate / Dumbbell', instructions: 'Twist torso side to side touching weight to floor near hips.', estimatedCaloriesBurned: 90 }
-      ]
-    },
-    6: {
-      dayTitle: 'Day 6: Compound Strength & Core Stability Split',
-      category: 'Full Body',
-      exercises: [
-        { id: 'd6-ex1', name: 'Conventional Barbell Deadlifts', sets: 4, reps: '8 Reps', targetMuscle: 'Posterior Chain & Back', equipmentNeeded: 'Barbell', instructions: 'Drive through heels, keep bar close to shins, pull shoulders back at lockout.', estimatedCaloriesBurned: 160 },
-        { id: 'd6-ex2', name: 'Dumbbell Incline Chest Press', sets: 4, reps: '10 Reps', targetMuscle: 'Upper Chest & Triceps', equipmentNeeded: 'Bench & Dumbbells', instructions: 'Press dumbbells up in slight arching motion above upper chest.', estimatedCaloriesBurned: 120 },
-        { id: 'd6-ex3', name: 'Single-Arm Dumbbell Rows', sets: 3, reps: '12 Reps / Arm', targetMuscle: 'Lats & Core Stabilizers', equipmentNeeded: 'Bench & Dumbbell', instructions: 'Pull dumbbell toward hip crease squeezing lat at top.', estimatedCaloriesBurned: 100 },
-        { id: 'd6-ex4', name: 'Hanging Leg Raises', sets: 4, reps: '12 Reps', targetMuscle: 'Lower Abs', equipmentNeeded: 'Pull-Up Bar', instructions: 'Raise straight legs to 90 degrees without swinging momentum.', estimatedCaloriesBurned: 85 },
-        { id: 'd6-ex5', name: 'Farmer Walk Carries', sets: 3, reps: '40 Meters', targetMuscle: 'Grip Strength & Traps', equipmentNeeded: 'Heavy Dumbbells', instructions: 'Walk with tall posture carrying heavy dumbbells at sides.', estimatedCaloriesBurned: 95 }
-      ]
-    },
-    7: {
-      dayTitle: 'Day 7: Rest, Hydration & Deload Recovery Protocol',
-      category: 'Full Body',
-      exercises: [
-        { id: 'd7-ex1', name: 'Foam Rolling Quad & Hamstring Release', sets: 1, reps: '10 Mins', targetMuscle: 'Myofascial Tissue', equipmentNeeded: 'Foam Roller', instructions: 'Roll slowly over tight muscles pausing on tender spots for 30s.', estimatedCaloriesBurned: 40 },
-        { id: 'd7-ex2', name: 'Light Outdoor Recovery Walk', sets: 1, reps: '20 Mins', targetMuscle: 'Active Blood Circulation', equipmentNeeded: 'Outdoors', instructions: 'Casual stroll at 3 km/h to promote lactic acid removal.', estimatedCaloriesBurned: 90 },
-        { id: 'd7-ex3', name: 'Full Body Static Stretching', sets: 1, reps: '15 Mins', targetMuscle: 'Tendons & Flexibility', equipmentNeeded: 'Mat', instructions: 'Hold each static stretch for 30 seconds without bouncing.', estimatedCaloriesBurned: 50 }
-      ]
-    }
+  // Coach Chat State inside Modal
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const chatEndRef = useRef(null);
+
+  // Calibration Form State
+  const [customGoal, setCustomGoal] = useState(prescriptionMeta?.targetGoal || 'Hypertrophy & Lean Muscle Mass');
+  const [customEquip, setCustomEquip] = useState(prescriptionMeta?.equipmentProfile || 'Full Gym Access');
+  const [customExp, setCustomExp] = useState(prescriptionMeta?.experienceTier || 'Intermediate');
+
+  // Safely resolve current plan and exercise list with default fallbacks
+  const currentPlan = allPlans?.[activeDay] || allPlans?.[1] || {
+    dayNumber: 1,
+    dayTitle: 'Day 1: Chest & Triceps Hypertrophy Overload',
+    weekLabel: 'Week 1 • Day 1 of 30',
+    phaseLabel: 'Phase 1: Anatomical Adaptation',
+    targetMuscle: 'Upper Chest & Triceps',
+    rpeTarget: '8.5 / 10',
+    durationMins: 45,
+    restHours: 24,
+    notes: 'Focus on 3-second controlled eccentrics. Squeeze pecs hard at lockout.',
+    exercises: []
   };
+  const currentExercises = currentPlan?.exercises || [];
 
+  // Sync state when user switches or URL query param changes
   useEffect(() => {
-    fetchMLRecommendation();
-  }, []);
+    const email = (user?.email || 'default_user').trim().toLowerCase();
+    
+    // Check URL query param first
+    const params = new URLSearchParams(location.search);
+    const dayParam = params.get('day');
+    
+    // Read local scoped state
+    let localMap = {};
+    try {
+      const savedMap = localStorage.getItem(`smartfit_${email}_completed_days_map`);
+      if (savedMap) localMap = JSON.parse(savedMap);
+    } catch (e) {}
 
+    const localCount = Object.keys(localMap).filter(d => localMap[d]).length;
+    const localMax = Math.min(30, localCount + 1);
+
+    if (dayParam) {
+      const p = parseInt(dayParam, 10);
+      if (!isNaN(p) && p >= 1 && p <= 30) {
+        setActiveDay(Math.min(localMax, p));
+      }
+    } else {
+      const savedActive = localStorage.getItem(`smartfit_${email}_workout_active_day`);
+      const p = savedActive ? parseInt(savedActive, 10) : 1;
+      setActiveDay(Math.min(localMax, Math.max(1, p)));
+    }
+
+    setCompletedDays(localMap);
+
+    // Fetch and sync from backend database
+    if (user?.email) {
+      fetchUserWorkoutProgressApi(user.email).then(data => {
+        if (data && Array.isArray(data.completedWorkoutDays)) {
+          const map = {};
+          data.completedWorkoutDays.forEach(d => { map[d] = true; });
+          setCompletedDays(map);
+          try {
+            localStorage.setItem(`smartfit_${email}_completed_days_map`, JSON.stringify(map));
+          } catch (e) {}
+
+          const count = data.completedWorkoutDays.length;
+          const maxAllowed = Math.min(30, count + 1);
+          const backendActive = data.activeWorkoutDay || maxAllowed;
+
+          if (!dayParam) {
+            const finalDay = Math.min(maxAllowed, Math.max(1, backendActive));
+            setActiveDay(finalDay);
+            localStorage.setItem(`smartfit_${email}_workout_active_day`, finalDay.toString());
+          }
+        }
+      }).catch(err => {
+        console.warn('Backend progress fetch sync note:', err);
+      });
+
+      // Fetch official approved workout plan
+      fetchUserApprovedPlanApi(user.email).then(plan => {
+        if (plan) {
+          setServerWorkoutPlan(plan);
+        }
+      }).catch(err => {
+        console.warn('Backend approved plan fetch note:', err);
+      });
+    }
+  }, [user?.email, location.search]);
+
+  // Sync state when switching active day
   useEffect(() => {
-    fetchWorkout(currentDay, category);
-  }, [currentDay, category]);
+    try {
+      const saved = localStorage.getItem(`smartfit_${userEmail}_sets_day_${activeDay}`);
+      setCompletedState(saved ? JSON.parse(saved) : {});
+    } catch (e) {
+      setCompletedState({});
+    }
+    localStorage.setItem(`smartfit_${userEmail}_workout_active_day`, activeDay.toString());
+    setAlertBanner('');
+  }, [activeDay, userEmail]);
 
+  // Save completed sets for active day
+  useEffect(() => {
+    localStorage.setItem(`smartfit_${userEmail}_sets_day_${activeDay}`, JSON.stringify(completedState));
+  }, [completedState, activeDay, userEmail]);
+
+  // Rest Timer Countdown
   useEffect(() => {
     let interval = null;
     if (timerActive && timerSeconds > 0) {
@@ -142,43 +448,23 @@ export default function Workout() {
     return () => clearInterval(interval);
   }, [timerActive, timerSeconds]);
 
-  const fetchMLRecommendation = () => {
-    setMlLoading(true);
-    fetch('http://localhost:8081/api/workouts/recommend')
-      .then(res => res.json())
-      .then(data => {
-        if (data && data.recommendedWorkoutType) {
-          setMlRecommendation(data);
-        }
-        setMlLoading(false);
-      })
-      .catch(err => {
-        console.warn('Backend ML recommendation note:', err);
-        setMlLoading(false);
-      });
-  };
-
-  const fetchWorkout = (dayNum, selectedCat) => {
-    setLoading(true);
-    const dayPlan = DAY_PLANS[dayNum] || DAY_PLANS[1];
-    if (dayPlan && dayPlan.exercises) {
-      setExercises(dayPlan.exercises);
-      setLoading(false);
-      return;
+  // Load chat messages when coach chat modal is opened
+  useEffect(() => {
+    if (coachChatOpen) {
+      const msgs = getConversationMessages(user?.email || 'aby@example.com', 'marcus@example.com');
+      setChatMessages(msgs);
     }
+  }, [coachChatOpen, user?.email]);
 
-    fetch(`http://localhost:8081/api/workouts/generate?category=${encodeURIComponent(selectedCat)}`)
-      .then(res => res.json())
-      .then(data => {
-        if (data && Array.isArray(data.exercises)) {
-          setExercises(data.exercises);
-        }
-        setLoading(false);
-      })
-      .catch(err => {
-        console.warn('Backend workout fetch fallback active:', err);
-        setLoading(false);
-      });
+  useEffect(() => {
+    if (coachChatOpen) {
+      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, coachChatOpen]);
+
+  const startRestTimer = (seconds) => {
+    setTimerSeconds(seconds);
+    setTimerActive(true);
   };
 
   const toggleSetComplete = (exId, setNum) => {
@@ -187,747 +473,1535 @@ export default function Workout() {
       const updated = { ...prev, [key]: !prev[key] };
       return updated;
     });
+    startRestTimer(60);
+    setAlertBanner('');
+  };
 
-    setTimerSeconds(45);
-    setTimerActive(true);
+  const handleCompleteAllSets = () => {
+    const allSets = {};
+    currentExercises.forEach(ex => {
+      const sCount = ex.sets || 3;
+      for (let s = 1; s <= sCount; s++) {
+        allSets[`${ex.id}-${s}`] = true;
+      }
+    });
+    setCompletedState(allSets);
+    setAlertBanner('');
+    startRestTimer(45);
   };
 
   const calculateTotalCalories = () => {
-    return exercises.reduce((acc, ex) => acc + (ex.estimatedCaloriesBurned || 80), 0);
+    if (!currentExercises || !currentExercises.length) return 450;
+    return currentExercises.reduce((acc, ex) => acc + (ex.estimatedCaloriesBurned || 85), 0);
   };
 
-  // CALCULATE GRAND TOTAL CALORIES & XP FOR ALL 7 DAYS
-  const calculateWeeklyTotals = () => {
-    let grandCals = 0;
-    let grandXP = 0;
-    Object.keys(DAY_PLANS).forEach(dKey => {
-      const plan = DAY_PLANS[dKey];
-      const dCals = plan.exercises.reduce((acc, e) => acc + (e.estimatedCaloriesBurned || 80), 0);
-      const dXP = dCals + (45 * 5); // 45 mins session
-      grandCals += dCals;
-      grandXP += dXP;
-    });
-    return { grandCals, grandXP };
+  const totalSetsCount = currentExercises.reduce((acc, ex) => acc + (ex.sets || 3), 0);
+  const completedSetsCount = currentExercises.reduce((acc, ex) => {
+    const sCount = ex.sets || 3;
+    let done = 0;
+    for (let s = 1; s <= sCount; s++) {
+      if (completedState[`${ex.id}-${s}`]) done++;
+    }
+    return acc + done;
+  }, 0);
+
+  const isDayFullyCompleted = completedDays[activeDay] || (completedSetsCount === totalSetsCount && totalSetsCount > 0);
+
+  const handleSelectDay = (dayNum) => {
+    if (dayNum > maxUnlockedDay) {
+      setLockedDayModal({
+        targetDay: dayNum,
+        requiredDay: maxUnlockedDay,
+        reason: `Sequential Progression Locked: You cannot skip to Day ${dayNum} without finishing Day ${maxUnlockedDay} and fulfilling your prescribed recovery period.`
+      });
+      return;
+    }
+    setActiveDay(dayNum);
   };
 
-  const handleLogWorkout = () => {
+  const handleCalibratePlan = () => {
+    setCalibrating(true);
+    setTimeout(() => {
+      const newPlans = GENERATE_PERIODIZED_COACH_PLAN({
+        goal: 'Hypertrophy',
+        equipment: customEquip,
+        experience: customExp
+      });
+
+      const updatedMeta = {
+        ...prescriptionMeta,
+        targetGoal: customGoal,
+        equipmentProfile: customEquip,
+        experienceTier: customExp,
+        issuedDate: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
+        approvalStatus: 'APPROVED_AND_ACTIVE',
+        prescriptionId: `RX-30D-${Math.floor(1000 + Math.random() * 9000)}-${assignedCoach.name.split(' ').map(n=>n[0]).join('')}`
+      };
+
+      setAllPlans(newPlans);
+      setPrescriptionMeta(updatedMeta);
+      localStorage.setItem(`smartfit_${userEmail}_workout_prescription`, JSON.stringify(updatedMeta));
+      setCalibrating(false);
+      setCalibrateModal(false);
+      setLogSuccess(`✓ Coach ${assignedCoach.name} has approved and certified your updated 30-Day Prescription!`);
+    }, 1000);
+  };
+
+  const handleSendCoachMessage = (e) => {
+    e?.preventDefault();
+    if (!chatInput.trim()) return;
+
+    const userEmailAddr = user?.email || 'aby@example.com';
+    const userName = user?.fullName || 'Aby Thomas';
+
+    sendChatMessage(
+      userEmailAddr,
+      'marcus@example.com',
+      'TRAINER',
+      'USER',
+      userEmailAddr,
+      userName,
+      chatInput
+    );
+
+    const updated = getConversationMessages(userEmailAddr, 'marcus@example.com');
+    setChatMessages(updated);
+    setChatInput('');
+  };
+
+  const handleRequestAiPlan = async (e) => {
+    e?.preventDefault();
+    setRequestingAiPlan(true);
+    setAlertBanner('');
+    try {
+      const payload = {
+        userEmail: user?.email || 'aby@example.com',
+        fitnessGoal: aiFormFields.fitnessGoal,
+        fitnessLevel: aiFormFields.fitnessLevel,
+        daysPerWeek: Number(aiFormFields.daysPerWeek) || 4,
+        equipment: aiFormFields.equipment,
+        injuryNotes: aiFormFields.injuryNotes,
+        age: user?.age ? Number(user.age) : 26,
+        gender: user?.gender || 'Male',
+        weightKg: user?.weight ? Number(user.weight) : 75,
+        heightCm: user?.height ? Number(user.height) : 178
+      };
+      const res = await requestAiWorkoutPlanApi(payload);
+      if (res && res.plan) {
+        setServerWorkoutPlan(res.plan);
+        setLogSuccess(`✨ AI Candidate Plan Generated! Plan has been routed to ${assignedCoach.name} for official review & sign-off.`);
+      } else {
+        setLogSuccess(`✨ AI Workout Recommendation submitted! It is now pending Trainer review.`);
+      }
+    } catch (err) {
+      console.warn('Request AI plan error:', err);
+      setLogSuccess(`✨ AI Workout Recommendation created and sent to your trainer.`);
+    } finally {
+      setRequestingAiPlan(false);
+      setAiGenModalOpen(false);
+    }
+  };
+
+  const handleLogWorkout = async () => {
+    if (completedSetsCount < totalSetsCount) {
+      setAlertBanner(`⚠️ Incomplete Sets: You have only completed ${completedSetsCount} of ${totalSetsCount} prescribed sets. Complete all sets before logging to unlock Day ${Math.min(30, activeDay + 1)}.`);
+      window.scrollTo({ top: 400, behavior: 'smooth' });
+      return;
+    }
+
     setLogging(true);
+    setAlertBanner('');
     setLogSuccess(null);
 
-    const completedNames = exercises
-      .filter((_, idx) => Object.keys(completedState).some(k => k.startsWith(`d${currentDay}-ex`) && completedState[k]))
-      .map(ex => ex.name);
-
+    const completedNames = currentExercises.map(ex => ex.name);
     const totalCals = calculateTotalCalories();
-    const durationMins = 45;
+    const durationMins = currentPlan.durationMins || 45;
     const xpEarned = totalCals + (durationMins * 5);
-    const dayTitle = DAY_PLANS[currentDay]?.dayTitle || `Day ${currentDay} Workout`;
+    const dayTitle = currentPlan.dayTitle;
+    const nowTimestamp = Date.now();
 
     const payload = {
-      email: user?.email || 'john@example.com',
-      workoutTitle: `${dayTitle} (MongoDB Logged)`,
+      email: userEmail,
+      dayNumber: activeDay,
+      workoutTitle: `${dayTitle} (Trainer Verified)`,
       durationMinutes: durationMins,
       caloriesBurned: totalCals,
-      completedExercises: completedNames.length > 0 ? completedNames : exercises.map(e => e.name)
+      completedExercises: completedNames
     };
 
-    fetch('http://localhost:8081/api/workouts/log', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    })
-      .then(res => res.json())
-      .then(data => {
-        setLogging(false);
-        const earned = data.log?.xpEarned || xpEarned;
-        
-        // CHECK IF FULL DAY 7 IS COMPLETED
-        if (currentDay === 7) {
-          const { grandCals, grandXP } = calculateWeeklyTotals();
-          setWeeklyCompletionData({
-            totalCalories: grandCals,
-            totalXP: grandXP,
-            daysCompleted: 7,
-            completionRate: '100%',
-            weeklyBadges: [
-              { title: '👑 SmartFit 7-Day Program Titan', desc: 'Successfully executed all 7 automated routine splits' },
-              { title: '🔥 Weekly Calorie Master (3,095 kcal)', desc: 'Surpassed 3,000+ kcal weekly burn benchmark' },
-              { title: '⚡ Perfect 7-Day Mastery Streak', desc: '100% Program Discipline Rate & Mongo Persistence' }
-            ]
-          });
-        } else {
-          const nextDay = currentDay + 1;
-          setLogSuccess(`Day ${currentDay} Completed & Logged to MongoDB! +${earned} XP Earned 🎉 Automating to Day ${nextDay}...`);
-          
-          setAchievementData({
-            completedDay: currentDay,
-            nextDay: nextDay,
-            calories: totalCals,
-            duration: durationMins,
-            xp: earned,
-            completedCount: completedNames.length > 0 ? completedNames.length : exercises.length,
-            streak: (user?.streakDays || 1) + 1,
-            badges: [
-              { title: `🔥 Day ${currentDay} Conqueror`, desc: `Burned ${totalCals} kcal in ${dayTitle}` },
-              { title: '🏆 Automated Split Advance', desc: `Unlocked Day ${nextDay} Routine Split` },
-              { title: '⚡ Consistency Streak', desc: `${(user?.streakDays || 1) + 1} Consecutive Active Days` }
-            ]
-          });
+    try {
+      await completeWorkoutDayApi(payload);
+    } catch (err) {
+      console.warn('Backend complete day note:', err);
+    }
 
-          setCurrentDay(nextDay);
-          localStorage.setItem('smartfit_workout_day', nextDay.toString());
-          setCompletedState({});
-        }
-      })
-      .catch(err => {
-        console.warn('Workout log fallback active:', err);
-        setLogging(false);
-        
-        if (currentDay === 7) {
-          const { grandCals, grandXP } = calculateWeeklyTotals();
-          setWeeklyCompletionData({
-            totalCalories: grandCals,
-            totalXP: grandXP,
-            daysCompleted: 7,
-            completionRate: '100%',
-            weeklyBadges: [
-              { title: '👑 SmartFit 7-Day Program Titan', desc: 'Successfully executed all 7 automated routine splits' },
-              { title: '🔥 Weekly Calorie Master (3,095 kcal)', desc: 'Surpassed 3,000+ kcal weekly burn benchmark' },
-              { title: '⚡ Perfect 7-Day Mastery Streak', desc: '100% Program Discipline Rate & Mongo Persistence' }
-            ]
-          });
-        } else {
-          const nextDay = currentDay + 1;
-          setLogSuccess(`Day ${currentDay} Completed locally! +${xpEarned} XP Earned 🎉 Automating to Day ${nextDay}...`);
+    setLogging(false);
+    
+    const newCompletedMap = { ...completedDays, [activeDay]: true };
+    const newTimestamps = { ...completedTimestamps, [activeDay]: nowTimestamp };
+    setCompletedDays(newCompletedMap);
+    setCompletedTimestamps(newTimestamps);
+    
+    localStorage.setItem(`smartfit_${userEmail}_completed_days_map`, JSON.stringify(newCompletedMap));
+    localStorage.setItem(`smartfit_${userEmail}_completed_days_timestamps`, JSON.stringify(newTimestamps));
 
-          setAchievementData({
-            completedDay: currentDay,
-            nextDay: nextDay,
-            calories: totalCals,
-            duration: durationMins,
-            xp: xpEarned,
-            completedCount: exercises.length,
-            streak: (user?.streakDays || 1) + 1,
-            badges: [
-              { title: `🔥 Day ${currentDay} Conqueror`, desc: `Burned ${totalCals} kcal in ${dayTitle}` },
-              { title: '🏆 Automated Split Advance', desc: `Unlocked Day ${nextDay} Routine Split` },
-              { title: '⚡ Consistency Streak', desc: `${(user?.streakDays || 1) + 1} Consecutive Active Days` }
-            ]
-          });
+    const totalDaysDone = Object.keys(newCompletedMap).filter(k => newCompletedMap[k]).length;
 
-          setCurrentDay(nextDay);
-          localStorage.setItem('smartfit_workout_day', nextDay.toString());
-          setCompletedState({});
-        }
+    // Check if 10-day workout milestone reached
+    if (totalDaysDone === 10 || activeDay === 10) {
+      setTenDayMilestoneModal(true);
+    }
+
+    if (activeDay === 30) {
+      setCycleCompletedModal(true);
+    } else {
+      const nextDay = activeDay + 1;
+      setLogSuccess(`✓ Day ${activeDay} Completed & Rest Period Activated! Day ${nextDay} is now Unlocked 🎉 (Total ${totalDaysDone} Days Completed Saved)`);
+      
+      setAchievementData({
+        dayNumber: activeDay,
+        nextDay,
+        planTitle: dayTitle,
+        calories: totalCals,
+        duration: durationMins,
+        xp: xpEarned,
+        completedCount: currentExercises.length,
+        totalExercises: currentExercises.length,
+        restHours: currentPlan.restHours || 24,
+        coachName: assignedCoach.name,
+        totalDaysCompleted: totalDaysDone
       });
+
+      setActiveDay(nextDay);
+      localStorage.setItem(`smartfit_${userEmail}_workout_active_day`, nextDay.toString());
+    }
   };
 
+  const handleRestartCycle = async () => {
+    try {
+      await resetWorkoutCycleApi(userEmail);
+    } catch (e) {}
+
+    setActiveDay(1);
+    setCompletedDays({});
+    setCompletedTimestamps({});
+    for (let d = 1; d <= 30; d++) {
+      localStorage.removeItem(`smartfit_${userEmail}_sets_day_${d}`);
+    }
+    localStorage.setItem(`smartfit_${userEmail}_workout_active_day`, '1');
+    localStorage.setItem(`smartfit_${userEmail}_completed_days_map`, JSON.stringify({}));
+    localStorage.setItem(`smartfit_${userEmail}_completed_days_timestamps`, JSON.stringify({}));
+    setCycleCompletedModal(false);
+    setTenDayMilestoneModal(false);
+    setAlertBanner('');
+    setLogSuccess('Workout Cycle Reset. Day 1 is now active for your next progression level.');
+  };
+
+  const progressPercent = Math.round((completedCount / 30) * 100);
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#12030F', color: '#FFFFFF' }}>
       <Navbar />
 
-      <main className="container" style={{ flex: 1, paddingTop: '130px', paddingBottom: '80px' }}>
-        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-          
-          {/* Header Banner */}
-          <div style={{ textAlign: 'center', marginBottom: '36px' }}>
-            <div className="badge" style={{ marginBottom: '10px' }}>
-              <Bot size={14} /> MODULE 2: AI WORKOUT RECOMMENDATION ENGINE
-            </div>
-            <h1 className="gradient-peach-rose" style={{ fontSize: '2.5rem', fontWeight: 800, marginBottom: '8px' }}>
-              Personalized AI Workout Tracker
-            </h1>
-            <p style={{ color: 'var(--text-muted)', fontSize: '1rem', maxWidth: '680px', margin: '0 auto' }}>
-              Scikit-Learn Machine Learning Model • Fast API Service • MongoDB Profile Sync
-            </p>
-          </div>
+      <main className="container" style={{ flex: 1, paddingTop: '110px', paddingBottom: '90px' }}>
+        <div style={{ maxWidth: '1120px', margin: '0 auto' }}>
 
-          {/* 7-DAY AUTOMATED PROGRAM ACTIVE TRACKER BADGE */}
-          <div className="glass-card" style={{ padding: '20px 28px', marginBottom: '28px', border: '1px solid var(--peach-primary)', background: 'rgba(255,158,125,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'linear-gradient(135deg, var(--peach-primary), var(--rose-accent))', color: '#12030f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Calendar size={22} />
+          {/* Success Toast Notification */}
+          {logSuccess && (
+            <div style={{ backgroundColor: 'rgba(52, 211, 153, 0.18)', border: '1px solid #34D399', color: '#34D399', padding: '14px 20px', borderRadius: '12px', fontSize: '0.92rem', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px', boxShadow: '0 4px 20px rgba(52, 211, 153, 0.25)' }}>
+              <CheckCircle2 size={20} /> {logSuccess}
+            </div>
+          )}
+
+          {/* Warning / Incomplete Set Validation Alert */}
+          {alertBanner && (
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.18)', border: '1px solid #EF4444', color: '#FCA5A5', padding: '14px 20px', borderRadius: '12px', fontSize: '0.92rem', marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', boxShadow: '0 4px 20px rgba(239, 68, 68, 0.25)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <AlertCircle size={20} color="#EF4444" />
+                <span>{alertBanner}</span>
               </div>
-              <div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--peach-soft)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  AUTOMATED 7-DAY SPLIT ENGINE ACTIVE
+              <button
+                onClick={handleCompleteAllSets}
+                style={{ background: '#EF4444', border: 'none', color: '#FFF', fontWeight: 800, fontSize: '0.8rem', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer' }}>
+                Check All Sets Complete
+              </button>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* 1. OFFICIAL COACH PRESCRIPTION & VERIFICATION SEAL HEADER */}
+          {/* ========================================================================= */}
+          <div style={{
+            padding: '24px 28px',
+            marginBottom: '24px',
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 112, 67, 0.35)',
+            background: 'linear-gradient(135deg, rgba(82, 21, 65, 0.5) 0%, rgba(29, 7, 24, 0.95) 100%)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '18px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ position: 'relative' }}>
+                <img 
+                  src={assignedCoach.avatar} 
+                  alt={assignedCoach.name}
+                  style={{ width: '56px', height: '56px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #FF7043' }}
+                />
+                <div style={{ position: 'absolute', bottom: -2, right: -2, background: '#10B981', color: '#FFF', borderRadius: '50%', padding: '3px', border: '2px solid #12030F' }}>
+                  <ShieldCheck size={12} />
                 </div>
-                <h3 style={{ fontSize: '1.25rem', color: '#fff', margin: 0, fontWeight: 800 }}>
-                  {DAY_PLANS[currentDay]?.dayTitle || `Day ${currentDay} Workout`}
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: '0.74rem', background: 'rgba(52, 211, 153, 0.15)', color: '#34D399', fontWeight: 800, padding: '2px 8px', borderRadius: '6px', border: '1px solid #34D399', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <ShieldCheck size={12} /> CERTIFIED COACH PRESCRIPTION
+                  </span>
+                  <span style={{ fontSize: '0.74rem', color: '#94A3B8' }}>
+                    ID: {prescriptionMeta?.prescriptionId || 'RX-30D-2026-MV78'}
+                  </span>
+                </div>
+
+                <h3 style={{ fontSize: '1.25rem', color: '#FFF', margin: '0 0 2px 0', fontWeight: 800 }}>
+                  Prescribed by {assignedCoach.name}
                 </h3>
+
+                <p style={{ color: 'var(--peach-soft)', fontSize: '0.82rem', margin: 0 }}>
+                  {assignedCoach.role} • <span style={{ color: '#E2C9D6' }}>{assignedCoach.certifications}</span>
+                </p>
               </div>
             </div>
 
-            {/* Day Switcher Buttons (1 to 7) */}
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontWeight: 600, marginRight: '4px' }}>Jump to Day:</span>
-              {[1, 2, 3, 4, 5, 6, 7].map(dNum => (
-                <button
-                  key={dNum}
-                  onClick={() => {
-                    setCurrentDay(dNum);
-                    localStorage.setItem('smartfit_workout_day', dNum.toString());
-                    setCompletedState({});
-                  }}
-                  style={{
-                    width: '34px',
-                    height: '34px',
-                    borderRadius: '10px',
-                    border: currentDay === dNum ? 'none' : '1px solid rgba(255,255,255,0.15)',
-                    background: currentDay === dNum ? 'linear-gradient(135deg, var(--peach-primary), var(--rose-accent))' : 'rgba(255,255,255,0.05)',
-                    color: currentDay === dNum ? '#12030f' : '#fff',
-                    fontWeight: 800,
-                    fontSize: '0.88rem',
-                    cursor: 'pointer',
-                    transition: '0.2s'
-                  }}
-                >
-                  {dNum}
-                </button>
-              ))}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setAiGenModalOpen(true)}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+                  border: 'none',
+                  color: '#FFF',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 15px rgba(139, 92, 246, 0.35)'
+                }}>
+                <Sparkles size={15} />
+                <span>✨ AI Workout Generator</span>
+              </button>
+
+              <button
+                onClick={() => navigate('/workout-studio')}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, #FF7043 0%, #E8809D 100%)',
+                  border: 'none',
+                  color: '#12030F',
+                  fontWeight: 900,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 4px 15px rgba(255, 112, 67, 0.35)'
+                }}>
+                <Zap size={15} />
+                <span>3D Workout Studio (14 Splits)</span>
+              </button>
+
+              <button
+                onClick={() => setPrescriptionModal(true)}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 158, 125, 0.12)',
+                  border: '1px solid var(--peach-primary)',
+                  color: 'var(--peach-light)',
+                  fontWeight: 700,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                <FileText size={15} />
+                <span>View Prescription</span>
+              </button>
+
+              <button
+                onClick={() => setCalibrateModal(true)}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '10px',
+                  background: 'rgba(255, 255, 255, 0.06)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#FFF',
+                  fontWeight: 700,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                <Sliders size={15} />
+                <span>Calibrate Split</span>
+              </button>
+
+              <button
+                onClick={() => setCoachChatOpen(true)}
+                style={{
+                  padding: '9px 14px',
+                  borderRadius: '10px',
+                  background: '#FF7043',
+                  border: 'none',
+                  color: '#12030F',
+                  fontWeight: 800,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                <MessageSquare size={15} />
+                <span>Ask Coach</span>
+              </button>
             </div>
           </div>
 
-          {/* ML WORKOUT RECOMMENDATION CARD (EXPLAINABLE AI) */}
-          <div className="glass-card" style={{ padding: '32px', marginBottom: '36px', border: '1px solid var(--peach-primary)', background: 'linear-gradient(135deg, rgba(255,158,125,0.08), rgba(232,128,157,0.04))' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'linear-gradient(135deg, var(--peach-primary), var(--rose-accent))', color: '#12030f', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Bot size={26} />
+          {/* Pending Trainer Review Status Banner */}
+          {serverWorkoutPlan && (serverWorkoutPlan.status === 'PENDING_TRAINER_REVIEW' || serverWorkoutPlan.status === 'AI_GENERATED') && (
+            <div style={{
+              padding: '16px 22px',
+              marginBottom: '24px',
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.18) 0%, rgba(29, 7, 24, 0.95) 100%)',
+              border: '1px solid #8B5CF6',
+              boxShadow: '0 4px 20px rgba(139, 92, 246, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(139, 92, 246, 0.25)', color: '#C084FC', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Sparkles size={22} />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--peach-soft)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    ML MODEL PREDICTION (FASTAPI + SCIKIT-LEARN)
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                    <span style={{ fontSize: '0.72rem', background: 'rgba(139, 92, 246, 0.3)', color: '#C084FC', fontWeight: 800, padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(139, 92, 246, 0.5)' }}>
+                      STATUS: PENDING TRAINER APPROVAL
+                    </span>
+                    <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+                      {serverWorkoutPlan.planName || 'Personalized AI Split'}
+                    </span>
                   </div>
-                  <h2 style={{ fontSize: '1.6rem', color: '#fff', margin: 0, fontWeight: 800 }}>
-                    Recommended Routine: <span className="gradient-peach-rose">{mlRecommendation?.recommendedWorkoutType || 'Cardio'}</span>
-                  </h2>
+                  <div style={{ color: '#E2C9D6', fontSize: '0.86rem' }}>
+                    Your AI-generated exercise protocol is currently with <strong>{assignedCoach.name}</strong> for safety evaluation and custom set/rep calibration.
+                  </div>
                 </div>
               </div>
-
-              {mlRecommendation && (
-                <div style={{ background: 'rgba(74, 222, 128, 0.15)', border: '1px solid #4ade80', color: '#4ade80', padding: '6px 14px', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Sparkles size={14} /> Confidence Score: {mlRecommendation.confidence}
-                </div>
-              )}
+              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '6px 12px', borderRadius: '8px', fontSize: '0.8rem', color: '#C084FC', fontWeight: 700 }}>
+                {serverWorkoutPlan.exercises?.length || 0} candidate exercises generated
+              </div>
             </div>
+          )}
 
-            {mlLoading ? (
-              <div style={{ padding: '20px', textAlign: 'center', color: 'var(--peach-soft)' }}>
-                Running Random Forest ML Recommendation Engine...
+          {/* ========================================================================= */}
+          {/* 2. 30-DAY PROGRESS TRACKER & SEQUENTIAL LOCK SELECTOR BAR */}
+          {/* ========================================================================= */}
+          <div style={{ 
+            padding: '24px 28px', 
+            marginBottom: '26px', 
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 158, 125, 0.25)', 
+            background: 'linear-gradient(135deg, rgba(82, 21, 65, 0.4) 0%, rgba(29, 7, 24, 0.9) 100%)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.45)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Calendar size={20} color="var(--peach-primary)" />
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFF', margin: 0 }}>
+                  30-Day Sequential Progression Cycle
+                </h3>
               </div>
-            ) : (
-              <div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                  <div style={{ background: 'rgba(0,0,0,0.25)', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>Workout Type</div>
-                    <div style={{ fontSize: '1.2rem', color: 'var(--peach-light)', fontWeight: 800, marginTop: '4px' }}>{mlRecommendation?.recommendedWorkoutType || 'Cardio'}</div>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.25)', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>Duration</div>
-                    <div style={{ fontSize: '1.2rem', color: '#fff', fontWeight: 800, marginTop: '4px' }}>{mlRecommendation?.recommendedDuration || '45 mins'}</div>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.25)', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>Frequency</div>
-                    <div style={{ fontSize: '1.2rem', color: '#fff', fontWeight: 800, marginTop: '4px' }}>{mlRecommendation?.recommendedFrequency || '4 days/wk'}</div>
-                  </div>
-                  <div style={{ background: 'rgba(0,0,0,0.25)', padding: '16px', borderRadius: '12px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>Intensity</div>
-                    <div style={{ fontSize: '1.1rem', color: '#38bdf8', fontWeight: 800, marginTop: '4px' }}>{mlRecommendation?.recommendedIntensity || 'Moderate'}</div>
-                  </div>
-                </div>
-
-                <div style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.08)', borderRadius: '14px', padding: '18px 22px' }}>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--peach-soft)', fontWeight: 700, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Activity size={16} /> EXPLAINABLE AI (XAI) RECOMMENDATION RATIONALE:
-                  </div>
-                  <div style={{ fontSize: '0.925rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-                    {mlRecommendation?.reason || "Target Goal: Chosen to align with user profile goals. Biometric Match: Calibrated for weight, BMI, and resting heart rate capacity."}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Interactive Controls Bar: Category Selector & Rest Timer */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '16px' }}>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              {['Full Body', 'Upper Body', 'Core & Cardio'].map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setCategory(cat)}
-                  className={category === cat ? 'btn-primary' : 'btn-secondary'}
-                  style={{ padding: '10px 20px', fontSize: '0.9rem' }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ background: 'rgba(255,158,125,0.12)', border: '1px solid var(--glass-border)', borderRadius: '14px', padding: '8px 18px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Clock size={18} style={{ color: 'var(--peach-primary)' }} />
-              <div style={{ fontSize: '0.88rem', fontWeight: 600 }}>
-                Rest Timer: <span style={{ color: 'var(--peach-light)', fontWeight: 800, fontSize: '1.05rem' }}>{timerSeconds}s</span>
-              </div>
-              {timerActive && (
-                <span style={{ fontSize: '0.75rem', background: '#4ade80', color: '#000', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>
-                  COUNTING
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.82rem', color: '#4ADE80', fontWeight: 700, background: 'rgba(74,222,128,0.12)', padding: '3px 10px', borderRadius: '10px' }}>
+                  {completedCount}/30 Days Completed ({progressPercent}%)
                 </span>
+                <span style={{ fontSize: '0.82rem', color: 'var(--peach-primary)', fontWeight: 700, background: 'rgba(255,158,125,0.12)', padding: '3px 10px', borderRadius: '10px' }}>
+                  Unlocked: Up to Day {maxUnlockedDay}
+                </span>
+              </div>
+            </div>
+
+            {/* Cycle Progress Bar */}
+            <div style={{ width: '100%', height: '8px', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '4px', overflow: 'hidden', marginBottom: '18px' }}>
+              <div style={{ width: `${progressPercent}%`, height: '100%', background: 'linear-gradient(90deg, #FF7043, #10B981)', transition: 'width 0.4s ease' }} />
+            </div>
+
+            {/* 30-Day Grid Selector with Locked & Unlocked Visual Indicators */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(32px, 1fr))', gap: '6px' }}>
+              {Array.from({ length: 30 }, (_, i) => {
+                const dayNum = i + 1;
+                const isSelected = activeDay === dayNum;
+                const isDone = !!completedDays[dayNum];
+                const isLocked = dayNum > maxUnlockedDay;
+
+                return (
+                  <button
+                    key={dayNum}
+                    onClick={() => handleSelectDay(dayNum)}
+                    title={isLocked ? `Locked: Complete Day ${maxUnlockedDay} and rest first` : (isDone ? `Day ${dayNum} Completed` : `Day ${dayNum} In Progress`)}
+                    style={{
+                      height: '38px',
+                      borderRadius: '8px',
+                      border: isSelected 
+                        ? '2px solid #FF7043' 
+                        : (isDone 
+                            ? '1px solid #10B981' 
+                            : (isLocked 
+                                ? '1px solid rgba(255,255,255,0.06)' 
+                                : '1px solid rgba(255,158,125,0.3)')),
+                      backgroundColor: isSelected 
+                        ? '#FF7043' 
+                        : (isDone 
+                            ? 'rgba(16,185,129,0.18)' 
+                            : (isLocked 
+                                ? 'rgba(255,255,255,0.02)' 
+                                : 'rgba(255,158,125,0.08)')),
+                      color: isSelected 
+                        ? '#12030F' 
+                        : (isDone 
+                            ? '#34D399' 
+                            : (isLocked 
+                                ? 'rgba(255,255,255,0.25)' 
+                                : '#FFF')),
+                      fontWeight: 800,
+                      fontSize: '0.78rem',
+                      cursor: isLocked ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '1px',
+                      transition: 'all 0.2s ease',
+                      opacity: isLocked ? 0.45 : 1
+                    }}>
+                    {isDone ? (
+                      <Check size={12} strokeWidth={3} />
+                    ) : isLocked ? (
+                      <Lock size={11} />
+                    ) : (
+                      <span>{dayNum}</span>
+                    )}
+                    <span style={{ fontSize: '0.62rem', lineHeight: 1 }}>{isDone ? `${dayNum}` : ''}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Progression & Rest Rules Legend */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '0.76rem', color: '#E2C9D6', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#10B981', display: 'inline-block' }} /> Completed
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#FF7043', display: 'inline-block' }} /> Active Day
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: 'rgba(255,255,255,0.15)', display: 'inline-block' }} /> 🔒 Sequential Lock
+                </span>
+              </div>
+              <span style={{ color: 'var(--peach-primary)', fontWeight: 700 }}>
+                💡 Sequential Progression Enforced: Complete all sets for Day {activeDay} to unlock Day {Math.min(30, activeDay + 1)}.
+              </span>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* 3. PRIMARY COACH BLUEPRINT BANNER FOR ACTIVE DAY */}
+          {/* ========================================================================= */}
+          <div style={{ 
+            padding: '28px 32px', 
+            marginBottom: '26px', 
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 112, 67, 0.4)', 
+            background: 'linear-gradient(135deg, rgba(255,112,67,0.12) 0%, rgba(35,8,28,0.85) 100%)',
+            boxShadow: '0 10px 35px rgba(255,112,67,0.18)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
+                <div style={{ width: '54px', height: '54px', borderRadius: '16px', background: '#FF7043', color: '#12030F', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Dumbbell size={28} />
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                    <span style={{ backgroundColor: '#FF7043', color: '#12030F', fontSize: '0.72rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px', textTransform: 'uppercase' }}>
+                      {currentPlan.weekLabel}
+                    </span>
+                    <span style={{ backgroundColor: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', fontSize: '0.72rem', fontWeight: 800, padding: '3px 8px', borderRadius: '6px' }}>
+                      {currentPlan.phaseLabel}
+                    </span>
+                    <span style={{ color: '#4ADE80', fontSize: '0.8rem', fontWeight: 700 }}>
+                      ✓ Coach Approved
+                    </span>
+                  </div>
+
+                  <h2 style={{ fontSize: '1.5rem', color: '#FFF', margin: '0 0 6px 0', fontWeight: 800 }}>
+                    {currentPlan.dayTitle}
+                  </h2>
+
+                  <p style={{ color: '#E2C9D6', fontSize: '0.9rem', margin: 0, fontStyle: 'italic', lineHeight: '1.5', maxWidth: '720px' }}>
+                    "{currentPlan.notes}"
+                  </p>
+                </div>
+              </div>
+
+              {/* Routine Metrics Overview */}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Duration</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FFF' }}>{currentPlan.durationMins || 45} mins</div>
+                </div>
+
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Target Load</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#FF7043' }}>{currentPlan.rpeTarget || '8.5 / 10'}</div>
+                </div>
+
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '10px 16px', borderRadius: '10px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Est. Calories</div>
+                  <div style={{ fontSize: '1.15rem', fontWeight: 800, color: '#4ADE80' }}>{calculateTotalCalories()} kcal</div>
+                </div>
+
+                <button
+                  onClick={() => setDemoExercise(currentExercises[0] || { name: 'Incline Barbell Bench Press' })}
+                  title="Launch 3D Virtual Coach Split Masterclass"
+                  style={{
+                    padding: '10px 18px',
+                    borderRadius: '12px',
+                    background: 'linear-gradient(135deg, #FF7043 0%, #E8809D 100%)',
+                    border: 'none',
+                    color: '#12030F',
+                    fontWeight: 900,
+                    fontSize: '0.84rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '2px',
+                    boxShadow: '0 4px 18px rgba(255, 112, 67, 0.45)',
+                    transition: 'transform 0.2s ease'
+                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Sparkles size={15} />
+                    <span>3D Virtual Man Demo</span>
+                  </div>
+                  <span style={{ fontSize: '0.68rem', opacity: 0.85 }}>Full Split Masterclass</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* 4. INTERACTIVE REST TIMER BAR */}
+          {/* ========================================================================= */}
+          <div style={{ 
+            padding: '16px 24px', 
+            marginBottom: '26px', 
+            borderRadius: '16px',
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            gap: '14px', 
+            background: 'rgba(29,7,24,0.75)',
+            border: '1px solid rgba(255,158,125,0.2)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'rgba(255,158,125,0.15)', color: 'var(--peach-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Clock size={20} />
+              </div>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--peach-soft)', fontWeight: 700, textTransform: 'uppercase' }}>Between-Set Rest Timer</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 800, color: timerActive ? '#FF7043' : '#FFF' }}>
+                  {timerSeconds > 0 ? `${timerSeconds}s Remaining (Rest & Recover)` : 'Ready for Next Set'}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => startRestTimer(45)} style={{ padding: '7px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,158,125,0.2)', color: '#FFF', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+                45s Rest
+              </button>
+              <button onClick={() => startRestTimer(60)} style={{ padding: '7px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,158,125,0.2)', color: '#FFF', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+                60s Rest
+              </button>
+              <button onClick={() => startRestTimer(90)} style={{ padding: '7px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,158,125,0.2)', color: '#FFF', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+                90s Rest
+              </button>
+              {timerActive && (
+                <button onClick={() => setTimerSeconds(0)} style={{ padding: '7px 12px', borderRadius: '8px', background: 'rgba(239,68,68,0.2)', border: '1px solid #EF4444', color: '#FCA5A5', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer' }}>
+                  Reset
+                </button>
               )}
             </div>
           </div>
 
-          {/* Workout Exercises Grid */}
-          {loading ? (
-            <div className="glass-card" style={{ padding: '40px', textAlign: 'center', color: 'var(--peach-soft)' }}>
-              Generating personalized workout routines...
+          {/* ========================================================================= */}
+          {/* 5. PRESCRIBED EXERCISE SCHEDULE & SET COMPLETION CHECKLIST */}
+          {/* ========================================================================= */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <h3 style={{ fontSize: '1.3rem', fontWeight: 800, color: '#FFF', margin: 0 }}>
+                  Day {activeDay} Movement Schedule ({currentExercises.length} Exercises)
+                </h3>
+                <span style={{ fontSize: '0.82rem', color: '#CBD5E1' }}>
+                  Check off each set as you complete them with proper form and rest intervals.
+                </span>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '0.88rem', color: completedSetsCount === totalSetsCount ? '#4ADE80' : '#FFB8A1', fontWeight: 800, background: 'rgba(0,0,0,0.3)', padding: '6px 14px', borderRadius: '10px' }}>
+                  {completedSetsCount} / {totalSetsCount} Sets Completed
+                </span>
+                <button
+                  onClick={handleCompleteAllSets}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    background: 'rgba(52, 211, 153, 0.15)',
+                    border: '1px solid #34D399',
+                    color: '#34D399',
+                    fontWeight: 700,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}>
+                  <CheckSquare size={14} />
+                  <span>Check All Sets Done</span>
+                </button>
+              </div>
             </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '36px' }}>
-              {exercises.map((ex, exIdx) => {
-                const totalSets = ex.sets || 3;
-                return (
-                  <div key={ex.id || exIdx} className="glass-card" style={{ padding: '24px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
-                      <div>
-                        <div style={{ fontSize: '0.78rem', color: 'var(--peach-soft)', fontWeight: 700, textTransform: 'uppercase' }}>
-                          Target: {ex.targetMuscle} • {ex.equipmentNeeded}
-                        </div>
-                        <h3 style={{ fontSize: '1.35rem', color: '#fff', margin: '4px 0 0 0', fontWeight: 700 }}>
-                          {ex.name}
-                        </h3>
+
+            {currentExercises.map((ex, idx) => {
+              const setsCount = ex.sets || 3;
+              const allSetsCompleted = Array.from({ length: setsCount }, (_, sIdx) => !!completedState[`${ex.id}-${sIdx + 1}`]).every(Boolean);
+
+              return (
+                <div 
+                  key={ex.id || idx}
+                  style={{
+                    padding: '24px 28px',
+                    borderRadius: '16px',
+                    border: allSetsCompleted ? '1px solid #34D399' : '1px solid rgba(255, 158, 125, 0.2)',
+                    background: allSetsCompleted ? 'linear-gradient(135deg, rgba(52,211,153,0.08) 0%, rgba(29,7,24,0.85) 100%)' : 'rgba(29,7,24,0.75)',
+                    transition: 'all 0.25s ease'
+                  }}>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px', marginBottom: '14px' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ backgroundColor: 'rgba(255,112,67,0.15)', color: '#FF7043', fontSize: '0.72rem', fontWeight: 800, padding: '2px 8px', borderRadius: '6px' }}>
+                          EXERCISE #{idx + 1}
+                        </span>
+                        <span style={{ color: '#38BDF8', fontSize: '0.78rem', fontWeight: 700 }}>
+                          Target: {ex.targetMuscle}
+                        </span>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <button
-                          onClick={() => setDemoExercise(ex)}
-                          className="btn-secondary"
-                          style={{ padding: '6px 14px', fontSize: '0.82rem', borderColor: 'var(--peach-primary)', color: 'var(--peach-light)', display: 'flex', alignItems: 'center', gap: '6px' }}
-                        >
-                          <Play size={14} style={{ fill: 'var(--peach-primary)' }} /> Watch Demo & Form
-                        </button>
-                        
-                        <div style={{ display: 'flex', gap: '14px', fontSize: '0.88rem', color: 'var(--text-subtle)', alignItems: 'center' }}>
-                          <div><strong style={{ color: '#fff' }}>{ex.sets}</strong> Sets</div>
-                          <div><strong style={{ color: 'var(--peach-light)' }}>{ex.reps}</strong></div>
-                          <div style={{ color: '#ff6b4a', fontWeight: 700 }}><Flame size={14} style={{ display: 'inline', marginRight: '4px' }} />{ex.estimatedCaloriesBurned || 90} kcal</div>
-                        </div>
+                      <h4 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FFF', margin: 0 }}>
+                        {ex.name}
+                      </h4>
+
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', marginTop: '4px' }}>
+                        Equipment: <span style={{ color: '#FFF' }}>{ex.equip || ex.equipmentNeeded || 'Standard Gym'}</span> • Weight Target: <span style={{ color: '#FACC15' }}>{ex.weight || 'Prescribed Load'}</span>
                       </div>
                     </div>
 
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', marginBottom: '18px', background: 'rgba(0,0,0,0.2)', padding: '10px 14px', borderRadius: '10px' }}>
-                      💡 <strong>Instruction:</strong> {ex.instructions}
-                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => navigate(`/workout-studio?exercise=${encodeURIComponent(ex.name)}&mode=demo`)}
+                        title={`Watch Virtual Human 3D Demonstration for ${ex.name}`}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          background: 'linear-gradient(135deg, rgba(255,112,67,0.2) 0%, rgba(255,158,125,0.1) 100%)',
+                          border: '1px solid var(--peach-primary)',
+                          color: 'var(--peach-light)',
+                          fontWeight: 800,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 8px rgba(255,112,67,0.15)',
+                          transition: 'all 0.2s ease'
+                        }}>
+                        <Play size={13} fill="var(--peach-primary)" />
+                        <span>3D Demo</span>
+                      </button>
 
-                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.825rem', color: 'var(--text-subtle)', fontWeight: 600 }}>Log Sets:</span>
-                      {Array.from({ length: totalSets }).map((_, setIdx) => {
-                        const setNum = setIdx + 1;
-                        const key = `${ex.id}-${setNum}`;
-                        const isDone = !!completedState[key];
+                      <button
+                        onClick={() => navigate(`/workout-studio?exercise=${encodeURIComponent(ex.name)}&mode=camera`)}
+                        title={`Launch AI Camera Computer-Vision Form Tracker & Rep Counter for ${ex.name}`}
+                        style={{
+                          padding: '7px 14px',
+                          borderRadius: '8px',
+                          background: 'linear-gradient(135deg, rgba(56,189,248,0.2) 0%, rgba(139,92,246,0.15) 100%)',
+                          border: '1px solid #38BDF8',
+                          color: '#BAE6FD',
+                          fontWeight: 800,
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 8px rgba(56,189,248,0.15)',
+                          transition: 'all 0.2s ease'
+                        }}>
+                        <Sparkles size={13} />
+                        <span>AI Form Camera</span>
+                      </button>
+
+                      <div style={{ textAlign: 'right', marginLeft: '6px' }}>
+                        <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#4ADE80' }}>
+                          {ex.estimatedCaloriesBurned || 90} <span style={{ fontSize: '0.75rem', color: 'var(--text-subtle)' }}>kcal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Coach Form Instructions */}
+                  {(ex.cue || ex.instructions) && (
+                    <div style={{ background: 'rgba(0,0,0,0.25)', padding: '10px 14px', borderRadius: '8px', borderLeft: '3px solid #FF7043', marginBottom: '16px', fontSize: '0.82rem', color: '#CBD5E1', lineHeight: '1.4' }}>
+                      <strong style={{ color: 'var(--peach-soft)' }}>Coach Cue:</strong> {ex.cue || ex.instructions}
+                    </div>
+                  )}
+
+                  {/* Interactive Set Checklist Row */}
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-subtle)', fontWeight: 700 }}>
+                        PRESCRIPTION: {ex.sets} SETS × {ex.reps} REPS
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      {Array.from({ length: setsCount }, (_, sIdx) => {
+                        const setNum = sIdx + 1;
+                        const isDone = !!completedState[`${ex.id}-${setNum}`];
                         return (
                           <button
                             key={setNum}
                             onClick={() => toggleSetComplete(ex.id, setNum)}
                             style={{
-                              background: isDone ? 'linear-gradient(135deg, var(--peach-primary), var(--rose-accent))' : 'rgba(255,255,255,0.06)',
-                              color: isDone ? '#12030f' : '#fff',
-                              border: isDone ? 'none' : '1px solid rgba(255,255,255,0.15)',
-                              borderRadius: '10px',
-                              padding: '8px 16px',
-                              fontSize: '0.85rem',
-                              fontWeight: 700,
+                              padding: '7px 16px',
+                              borderRadius: '8px',
+                              border: isDone ? '1px solid #10B981' : '1px solid rgba(255,255,255,0.2)',
+                              background: isDone ? '#10B981' : 'rgba(255,255,255,0.04)',
+                              color: isDone ? '#12030F' : '#FFF',
+                              fontWeight: 800,
+                              fontSize: '0.82rem',
                               cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '6px',
-                              transition: '0.2s'
-                            }}
-                          >
-                            {isDone ? <Check size={14} /> : null}
-                            Set {setNum}
+                              gap: '5px',
+                              transition: 'all 0.15s ease'
+                            }}>
+                            {isDone && <Check size={14} strokeWidth={3} />}
+                            <span>Set {setNum} {isDone ? 'Done' : ''}</span>
                           </button>
                         );
                       })}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
 
-          {/* Log Workout Banner */}
-          <div className="glass-card" style={{ padding: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ========================================================================= */}
+          {/* 6. FINISH & LOG WORKOUT OR RECOVERY PROTOCOL BANNER */}
+          {/* ========================================================================= */}
+          <div style={{ 
+            padding: '28px 32px', 
+            borderRadius: '20px',
+            border: isDayFullyCompleted ? '2px solid #10B981' : '1px solid rgba(255,158,125,0.3)', 
+            background: 'linear-gradient(135deg, rgba(82, 21, 65, 0.45) 0%, rgba(29, 7, 24, 0.9) 100%)',
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            gap: '20px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.45)'
+          }}>
             <div>
-              <h3 style={{ fontSize: '1.3rem', color: '#fff', margin: '0 0 4px 0' }}>
-                {currentDay === 7 ? 'Finish Day 7 & Unlock 7-Day Program Total XP!' : `Complete Day ${currentDay} & Advance to Day ${currentDay + 1}`}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isDayFullyCompleted ? '#10B981' : 'var(--peach-primary)', textTransform: 'uppercase' }}>
+                  {isDayFullyCompleted ? '✓ ALL SETS PERFORMED' : 'SESSION IN PROGRESS'}
+                </span>
+                <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+                  ({completedSetsCount}/{totalSetsCount} sets completed)
+                </span>
+              </div>
+              <h3 style={{ fontSize: '1.35rem', color: '#FFF', margin: 0, fontWeight: 800 }}>
+                Finish & Log Day {activeDay} Workout
               </h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', margin: 0 }}>
-                Earn <strong style={{ color: 'var(--peach-light)' }}>+{calculateTotalCalories() + 225} XP</strong> • Saves log to MongoDB.
+              <p style={{ color: 'var(--text-subtle)', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+                Fulfilling all sets registers your workout session, awards XP, and unlocks Day {Math.min(30, activeDay + 1)} after the recovery protocol.
               </p>
             </div>
 
-            <button
-              onClick={handleLogWorkout}
-              disabled={logging}
-              className="btn-primary"
-              style={{ padding: '14px 28px', fontSize: '1rem' }}
-            >
-              <Trophy size={18} />
-              <span>{logging ? 'Saving to MongoDB...' : currentDay === 7 ? 'Complete 7-Day Master Program 🏆' : `Complete Day ${currentDay} & Advance ➔`}</span>
-            </button>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              {completedDays[activeDay] ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ color: '#10B981', fontWeight: 800, fontSize: '0.92rem', background: 'rgba(16,185,129,0.15)', padding: '10px 18px', borderRadius: '12px' }}>
+                    ✓ Day {activeDay} Completed
+                  </span>
+                  {activeDay < 30 && (
+                    <button
+                      onClick={() => setActiveDay(activeDay + 1)}
+                      style={{
+                        padding: '12px 24px',
+                        borderRadius: '12px',
+                        background: 'linear-gradient(135deg, #FF7043 0%, #10B981 100%)',
+                        border: 'none',
+                        color: '#12030F',
+                        fontWeight: 800,
+                        fontSize: '0.95rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}>
+                      <span>Proceed to Day {activeDay + 1}</span>
+                      <ArrowRight size={16} />
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={handleLogWorkout}
+                  disabled={logging}
+                  style={{
+                    padding: '14px 28px',
+                    borderRadius: '12px',
+                    background: completedSetsCount === totalSetsCount ? 'linear-gradient(135deg, #FF7043 0%, #10B981 100%)' : 'rgba(255,158,125,0.15)',
+                    border: completedSetsCount === totalSetsCount ? 'none' : '1px solid rgba(255,158,125,0.35)',
+                    color: completedSetsCount === totalSetsCount ? '#12030F' : 'var(--peach-light)',
+                    fontWeight: 800,
+                    fontSize: '0.96rem',
+                    cursor: logging ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: completedSetsCount === totalSetsCount ? '0 6px 20px rgba(255,112,67,0.4)' : 'none'
+                  }}>
+                  <CheckCircle2 size={18} />
+                  <span>{logging ? 'Logging...' : `Complete Day ${activeDay} & Unlock Day ${Math.min(30, activeDay + 1)}`}</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          {logSuccess && (
-            <div style={{ marginTop: '20px', background: 'rgba(74, 222, 128, 0.15)', border: '1px solid #4ade80', borderRadius: '12px', padding: '16px', textAlign: 'center', color: '#4ade80', fontWeight: 700 }}>
-              {logSuccess}
+          {/* ========================================================================= */}
+          {/* MODAL 1: OFFICIAL COACH PRESCRIPTION CERTIFICATE */}
+          {/* ========================================================================= */}
+          {prescriptionModal && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, padding: '20px', backdropFilter: 'blur(12px)'
+            }}>
+              <div style={{ padding: '36px', maxWidth: '680px', width: '100%', background: '#1d0718', border: '2px solid #FF7043', borderRadius: '22px', maxHeight: '90vh', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '16px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ background: '#FF7043', color: '#12030F', fontSize: '0.72rem', fontWeight: 900, padding: '3px 8px', borderRadius: '6px' }}>
+                        OFFICIAL PRESCRIPTION
+                      </span>
+                      <span style={{ color: '#4ADE80', fontSize: '0.8rem', fontWeight: 800 }}>
+                        ✓ STATUS: APPROVED & ACTIVE
+                      </span>
+                    </div>
+                    <h2 style={{ fontSize: '1.6rem', color: '#FFF', margin: '4px 0 0 0', fontWeight: 900 }}>
+                      30-Day Periodized Training Prescription
+                    </h2>
+                  </div>
+                  <button onClick={() => setPrescriptionModal(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                    <X size={22} />
+                  </button>
+                </div>
+
+                {/* Athlete & Coach Profile Matrix */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '22px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.35)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700 }}>Athlete Profile</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FFF', marginTop: '2px' }}>{user?.fullName || 'John Doe'}</div>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--peach-soft)', marginTop: '2px' }}>Target: {prescriptionMeta?.targetGoal || 'Hypertrophy & Lean Muscle Mass'}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#CBD5E1' }}>Equipment: {prescriptionMeta?.equipmentProfile || 'Full Gym Access'}</div>
+                  </div>
+
+                  <div style={{ background: 'rgba(0,0,0,0.35)', padding: '14px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: '0.74rem', color: '#94A3B8', textTransform: 'uppercase', fontWeight: 700 }}>Prescribing Coach</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, color: '#FF7043', marginTop: '2px' }}>{assignedCoach.name}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#4ADE80', marginTop: '2px' }}>{assignedCoach.role}</div>
+                    <div style={{ fontSize: '0.78rem', color: '#CBD5E1' }}>ID: {prescriptionMeta?.prescriptionId || 'RX-30D-2026-MV78'}</div>
+                  </div>
+                </div>
+
+                {/* 4 Periodized Mesocycles */}
+                <div style={{ marginBottom: '22px' }}>
+                  <h4 style={{ fontSize: '1.05rem', color: '#FFF', fontWeight: 800, marginBottom: '10px' }}>
+                    4-Phase Periodization Architecture
+                  </h4>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {(prescriptionMeta?.phases || DEFAULT_PHASES).map((ph, idx) => (
+                      <div key={idx} style={{ background: 'rgba(255,255,255,0.04)', padding: '12px 16px', borderRadius: '10px', borderLeft: `3px solid ${idx === 0 ? '#38BDF8' : idx === 1 ? '#FACC15' : idx === 2 ? '#FF7043' : '#10B981'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#FFF' }}>
+                            Phase {ph.phase}: {ph.title} <span style={{ fontSize: '0.76rem', color: '#94A3B8', fontWeight: 600 }}>({ph.days})</span>
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: '#CBD5E1', marginTop: '2px' }}>
+                            {ph.focus}
+                          </div>
+                        </div>
+                        <span style={{ fontSize: '0.74rem', color: '#34D399', fontWeight: 800, background: 'rgba(52,211,153,0.1)', padding: '3px 8px', borderRadius: '6px' }}>
+                          Verified
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Coach Clinical Directives */}
+                <div style={{ background: 'rgba(255,112,67,0.1)', border: '1px dashed #FF7043', padding: '14px', borderRadius: '12px', marginBottom: '22px', fontSize: '0.84rem', color: '#E2C9D6', lineHeight: '1.5' }}>
+                  <strong style={{ color: 'var(--peach-soft)' }}>Coach Clinical Directives:</strong> "{prescriptionMeta?.coachNotes || DEFAULT_PRESCRIPTION_META.coachNotes}"
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#94A3B8' }}>
+                    Digitally Certified on {prescriptionMeta?.issuedDate || 'September 23, 2026'}
+                  </div>
+                  <button onClick={() => setPrescriptionModal(false)} className="btn-primary" style={{ padding: '8px 24px' }}>
+                    Acknowledge & Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 2: CALIBRATE & REQUEST COACH PLAN APPROVAL */}
+          {/* ========================================================================= */}
+          {calibrateModal && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, padding: '20px', backdropFilter: 'blur(12px)'
+            }}>
+              <div style={{ padding: '36px', maxWidth: '520px', width: '100%', background: '#1d0718', border: '2px solid #FF7043', borderRadius: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                  <div>
+                    <h3 style={{ fontSize: '1.35rem', color: '#FFF', margin: 0, fontWeight: 800 }}>
+                      Calibrate 30-Day Training Split
+                    </h3>
+                    <p style={{ color: 'var(--peach-soft)', fontSize: '0.82rem', margin: '2px 0 0 0' }}>
+                      Request updated coach prescription & volume parameters
+                    </p>
+                  </div>
+                  <button onClick={() => setCalibrateModal(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', color: '#CBD5E1', marginBottom: '6px', fontWeight: 700 }}>Primary Training Goal</label>
+                    <select 
+                      value={customGoal} 
+                      onChange={e => setCustomGoal(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,158,125,0.3)', color: '#FFF', fontSize: '0.9rem' }}>
+                      <option value="Hypertrophy & Lean Muscle Mass">Hypertrophy & Lean Muscle Mass</option>
+                      <option value="Maximum Strength & CNS Power">Maximum Strength & CNS Power</option>
+                      <option value="Fat Shred & Metabolic Conditioning">Fat Shred & Metabolic Conditioning</option>
+                      <option value="Functional Longevity & Athletic Mobility">Functional Longevity & Athletic Mobility</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', color: '#CBD5E1', marginBottom: '6px', fontWeight: 700 }}>Equipment Availability</label>
+                    <select 
+                      value={customEquip} 
+                      onChange={e => setCustomEquip(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,158,125,0.3)', color: '#FFF', fontSize: '0.9rem' }}>
+                      <option value="Full Gym Access">Full Gym Access (Barbells, Cables, Machines)</option>
+                      <option value="Dumbbells & Adjustable Bench">Dumbbells & Adjustable Bench Only</option>
+                      <option value="Home & Calisthenics Bodyweight">Home & Calisthenics Bodyweight</option>
+                      <option value="Kettlebell & Resistance Bands">Kettlebell & Resistance Bands</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', color: '#CBD5E1', marginBottom: '6px', fontWeight: 700 }}>Athlete Experience Tier</label>
+                    <select 
+                      value={customExp} 
+                      onChange={e => setCustomExp(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,158,125,0.3)', color: '#FFF', fontSize: '0.9rem' }}>
+                      <option value="Beginner / Novice">Beginner / Novice (Anatomical Adaptation Priority)</option>
+                      <option value="Intermediate">Intermediate (Progressive Overload Standard)</option>
+                      <option value="Advanced Athlete">Advanced Athlete (Peak Mechanical Tension)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button onClick={() => setCalibrateModal(false)} style={{ padding: '10px 18px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#CBD5E1', fontWeight: 700, cursor: 'pointer' }}>
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleCalibratePlan} 
+                    disabled={calibrating}
+                    className="btn-primary" 
+                    style={{ padding: '10px 22px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {calibrating ? <RefreshCw size={16} className="spin" /> : <ShieldCheck size={16} />}
+                    <span>{calibrating ? 'Calibrating with Coach...' : 'Request Coach Sign-off'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 3: 3D AI VIRTUAL COACH EXERCISE DEMO & VOICE MASTERCLASS */}
+          {/* ========================================================================= */}
+          {demoExercise && (
+            <VirtualCoachDemoModal
+              exercise={demoExercise}
+              allExercises={currentExercises}
+              onClose={() => setDemoExercise(null)}
+            />
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 4: LOCKED DAY NOTIFICATION POPUP */}
+          {/* ========================================================================= */}
+          {lockedDayModal && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, padding: '20px', backdropFilter: 'blur(10px)'
+            }}>
+              <div style={{ padding: '32px', maxWidth: '480px', width: '100%', background: '#1d0718', border: '2px solid #FF7043', borderRadius: '18px', textAlign: 'center' }}>
+                <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: 'rgba(255,112,67,0.15)', color: '#FF7043', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+                  <Lock size={30} />
+                </div>
+
+                <h3 style={{ fontSize: '1.4rem', color: '#FFF', margin: '0 0 8px 0', fontWeight: 800 }}>
+                  🔒 Day {lockedDayModal.targetDay} is Locked
+                </h3>
+
+                <p style={{ color: '#E2C9D6', fontSize: '0.9rem', lineHeight: '1.5', margin: '0 0 20px 0' }}>
+                  {lockedDayModal.reason}
+                </p>
+
+                <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px 16px', borderRadius: '10px', marginBottom: '20px', fontSize: '0.84rem', color: '#38BDF8', textAlign: 'left' }}>
+                  <strong>Next Action:</strong> Head to <strong>Day {lockedDayModal.requiredDay}</strong>, perform all {allPlans?.[lockedDayModal.requiredDay]?.exercises?.length || 4} exercise sets, and log your session.
+                </div>
+
+                <button
+                  onClick={() => {
+                    setActiveDay(lockedDayModal.requiredDay);
+                    setLockedDayModal(null);
+                  }}
+                  className="btn-primary"
+                  style={{ width: '100%', padding: '12px' }}>
+                  Go to Active Day {lockedDayModal.requiredDay}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 5: DAY COMPLETION & UNLOCK ACHIEVEMENT */}
+          {/* ========================================================================= */}
+          {achievementData && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, padding: '20px', backdropFilter: 'blur(12px)'
+            }}>
+              <div style={{ padding: '36px', maxWidth: '500px', width: '100%', background: '#1d0718', border: '2px solid #34D399', borderRadius: '20px', textAlign: 'center' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(52,211,153,0.2)', color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+                  <Trophy size={36} />
+                </div>
+
+                <h3 style={{ fontSize: '1.5rem', color: '#FFF', margin: '0 0 6px 0', fontWeight: 800 }}>
+                  Day {achievementData.dayNumber} Completed!
+                </h3>
+                <p style={{ color: '#A7F3D0', fontSize: '0.9rem', margin: '0 0 20px 0' }}>
+                  {achievementData.planTitle}
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)' }}>Energy Burned</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#4ADE80' }}>{achievementData.calories} kcal</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '10px' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)' }}>XP Earned</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: '#FACC15' }}>+{achievementData.xp} XP</div>
+                  </div>
+                </div>
+
+                {/* Rest & Recovery Directive */}
+                <div style={{ backgroundColor: 'rgba(52,211,153,0.1)', border: '1px solid #34D399', padding: '14px', borderRadius: '12px', marginBottom: '22px', fontSize: '0.86rem', color: '#FFF', textAlign: 'left' }}>
+                  <div style={{ fontWeight: 800, color: '#34D399', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <HeartPulse size={16} /> Rest & Recovery Protocol Active
+                  </div>
+                  <div style={{ color: '#E2C9D6', fontSize: '0.8rem', lineHeight: '1.4' }}>
+                    🧬 {achievementData.restHours}h Recovery protocol initiated. Muscle protein synthesis and glycogen reload are underway. <strong>Day {achievementData.nextDay}</strong> is now officially unlocked for your next session!
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => setAchievementData(null)}
+                  className="btn-primary" 
+                  style={{ width: '100%', padding: '12px', fontSize: '0.95rem' }}>
+                  Continue to Day {achievementData.nextDay}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 5.5: 10-DAY WORKOUT PLAN COMPLETED MILESTONE POPUP */}
+          {/* ========================================================================= */}
+          {tenDayMilestoneModal && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1050, padding: '20px', backdropFilter: 'blur(16px)'
+            }}>
+              <div style={{ padding: '38px', maxWidth: '540px', width: '100%', background: '#1d0718', border: '2px solid #38BDF8', borderRadius: '22px', textAlign: 'center', boxShadow: '0 0 40px rgba(56, 189, 248, 0.35)' }}>
+                <div style={{ width: '76px', height: '76px', borderRadius: '50%', background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', border: '2px solid #38BDF8' }}>
+                  <Award size={44} />
+                </div>
+
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', padding: '4px 14px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 800, marginBottom: '10px' }}>
+                  <Medal size={15} /> 10-DAY WORKOUT PLAN COMPLETED
+                </div>
+
+                <h2 style={{ fontSize: '1.75rem', color: '#FFF', margin: '0 0 8px 0', fontWeight: 900 }}>
+                  🎉 10 DAYS COMPLETED & STORED!
+                </h2>
+                <p style={{ color: '#BAE6FD', fontSize: '0.92rem', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+                  Congratulations! You have successfully completed the 10-Day Workout Milestone. This milestone is permanently stored in your fitness profile and training log.
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '22px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.35)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Plan Progress</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#38BDF8' }}>10 Days Done</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.35)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(74, 222, 128, 0.2)' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Calorie Total</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#4ADE80' }}>4,800+ kcal</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.35)', padding: '12px', borderRadius: '10px', border: '1px solid rgba(250, 204, 21, 0.2)' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#94A3B8' }}>Milestone Bonus</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#FACC15' }}>+3,500 XP</div>
+                  </div>
+                </div>
+
+                <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '14px', borderRadius: '12px', marginBottom: '22px', fontSize: '0.84rem', color: '#E2C9D6', textAlign: 'left' }}>
+                  <div style={{ fontWeight: 800, color: '#38BDF8', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldCheck size={16} /> Certified Permanent Record
+                  </div>
+                  <span>Coach Marcus Vance has signed off on your 10-Day Adaptation milestone. You are now prepared for advanced Progressive Overload in Days 11-30!</span>
+                </div>
+
+                <button 
+                  onClick={() => setTenDayMilestoneModal(false)}
+                  className="btn-primary" 
+                  style={{ width: '100%', padding: '14px', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <span>Continue Progression (Day 11 Unlocked)</span>
+                  <ArrowRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 6: 30-DAY PROGRAM TITAN CYCLE COMPLETION */}
+          {/* ========================================================================= */}
+          {cycleCompletedModal && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.9)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, padding: '20px', backdropFilter: 'blur(15px)'
+            }}>
+              <div style={{ padding: '40px', maxWidth: '540px', width: '100%', background: '#1d0718', border: '2px solid #FACC15', borderRadius: '20px', textAlign: 'center' }}>
+                <div style={{ width: '72px', height: '72px', borderRadius: '50%', background: 'rgba(250,204,21,0.2)', color: '#FACC15', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
+                  <Award size={42} />
+                </div>
+
+                <h2 style={{ fontSize: '1.8rem', color: '#FFF', margin: '0 0 8px 0', fontWeight: 800 }}>
+                  👑 30-DAY TITAN MASTER COMPLETED!
+                </h2>
+                <p style={{ color: '#FACC15', fontSize: '0.95rem', margin: '0 0 20px 0', fontWeight: 700 }}>
+                  You have successfully completed all 30 days of your trainer's periodized progression!
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '24px' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Total Burn</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#4ADE80' }}>14,500+ kcal</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Total XP</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#FACC15' }}>+16,950 XP</div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '12px', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>Discipline</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#38BDF8' }}>100%</div>
+                  </div>
+                </div>
+
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '24px' }}>
+                  Ready to restart the 30-day progression with increased strength baselines and overload?
+                </p>
+
+                <button 
+                  onClick={handleRestartCycle}
+                  className="btn-primary" 
+                  style={{ width: '100%', padding: '14px', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <RotateCcw size={18} />
+                  <span>Restart 30-Day Cycle (Day 1 Next Level)</span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 7: DEDICATED COACH CONSULTATION & CHAT MODAL */}
+          {/* ========================================================================= */}
+          {coachChatOpen && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1100, padding: '20px', backdropFilter: 'blur(10px)'
+            }}>
+              <div style={{ padding: '24px 28px', maxWidth: '520px', width: '100%', background: '#1d0718', border: '1px solid #FF7043', borderRadius: '20px', display: 'flex', flexDirection: 'column', height: '600px', maxHeight: '90vh' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '14px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <img src={assignedCoach.avatar} alt={assignedCoach.name} style={{ width: '42px', height: '42px', borderRadius: '50%', border: '2px solid #FF7043' }} />
+                    <div>
+                      <h4 style={{ fontSize: '1.1rem', color: '#FFF', margin: 0, fontWeight: 800 }}>{assignedCoach.name}</h4>
+                      <span style={{ fontSize: '0.74rem', color: '#4ADE80' }}>● Online • Strength Coach Desk</span>
+                    </div>
+                  </div>
+                  <button onClick={() => setCoachChatOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Chat message history stream */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {chatMessages.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem', marginTop: '60px' }}>
+                      Start a direct inquiry with {assignedCoach.name} regarding form, rest times, or exercise substitutions.
+                    </div>
+                  ) : (
+                    chatMessages.map((m, idx) => {
+                      const isMe = m.senderRole === 'USER' || m.senderEmail === (user?.email || 'aby@example.com');
+                      return (
+                        <div key={m.id || idx} style={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
+                          <div style={{
+                            maxWidth: '80%',
+                            padding: '10px 14px',
+                            borderRadius: '14px',
+                            background: isMe ? '#FF7043' : 'rgba(255,255,255,0.08)',
+                            color: isMe ? '#12030F' : '#FFF',
+                            fontWeight: isMe ? 700 : 400,
+                            fontSize: '0.86rem',
+                            lineHeight: '1.4'
+                          }}>
+                            <div>{m.text}</div>
+                            <div style={{ fontSize: '0.68rem', marginTop: '4px', opacity: 0.7, textAlign: 'right' }}>
+                              {m.timestamp || 'Just now'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={chatEndRef} />
+                </div>
+
+                {/* Chat input box */}
+                <form onSubmit={handleSendCoachMessage} style={{ display: 'flex', gap: '8px', paddingTop: '14px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                  <input
+                    type="text"
+                    value={chatInput}
+                    onChange={e => setChatInput(e.target.value)}
+                    placeholder={`Ask ${assignedCoach.name.split(' ')[0]} a question...`}
+                    style={{ flex: 1, padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,158,125,0.3)', color: '#FFF', fontSize: '0.88rem' }}
+                  />
+                  <button type="submit" style={{ padding: '10px 16px', borderRadius: '10px', background: '#FF7043', border: 'none', color: '#12030F', fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Send size={15} />
+                    <span>Send</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* MODAL 8: AI WORKOUT PLAN GENERATOR (SUBMIT TO TRAINER) */}
+          {/* ========================================================================= */}
+          {aiGenModalOpen && (
+            <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              background: 'rgba(0,0,0,0.88)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1100, padding: '20px', backdropFilter: 'blur(12px)'
+            }}>
+              <div style={{ padding: '32px 36px', maxWidth: '560px', width: '100%', background: '#1d0718', border: '2px solid #8B5CF6', borderRadius: '22px', boxShadow: '0 0 40px rgba(139, 92, 246, 0.3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: 'rgba(139, 92, 246, 0.25)', color: '#C084FC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Sparkles size={22} />
+                    </div>
+                    <div>
+                      <h3 style={{ fontSize: '1.35rem', color: '#FFF', margin: 0, fontWeight: 800 }}>
+                        AI Workout Plan Generator
+                      </h3>
+                      <p style={{ color: '#C084FC', fontSize: '0.8rem', margin: 0 }}>
+                        Generates candidate split & submits to Coach {assignedCoach.name}
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => setAiGenModalOpen(false)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
+                    <X size={20} />
+                  </button>
+                </div>
+
+                <form onSubmit={handleRequestAiPlan} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', color: '#CBD5E1', marginBottom: '5px', fontWeight: 700 }}>Primary Fitness Goal</label>
+                    <select
+                      value={aiFormFields.fitnessGoal}
+                      onChange={e => setAiFormFields(prev => ({ ...prev, fitnessGoal: e.target.value }))}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(139, 92, 246, 0.4)', color: '#FFF', fontSize: '0.9rem' }}>
+                      <option value="Hypertrophy">Hypertrophy (Muscle Growth)</option>
+                      <option value="Strength">Strength (Maximal Power & CNS)</option>
+                      <option value="Fat Loss">Fat Loss & Conditioning</option>
+                      <option value="Endurance">Cardiovascular Endurance</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', color: '#CBD5E1', marginBottom: '5px', fontWeight: 700 }}>Experience Level</label>
+                      <select
+                        value={aiFormFields.fitnessLevel}
+                        onChange={e => setAiFormFields(prev => ({ ...prev, fitnessLevel: e.target.value }))}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(139, 92, 246, 0.4)', color: '#FFF', fontSize: '0.9rem' }}>
+                        <option value="Beginner">Beginner</option>
+                        <option value="Intermediate">Intermediate</option>
+                        <option value="Advanced">Advanced</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.82rem', color: '#CBD5E1', marginBottom: '5px', fontWeight: 700 }}>Days Per Week</label>
+                      <select
+                        value={aiFormFields.daysPerWeek}
+                        onChange={e => setAiFormFields(prev => ({ ...prev, daysPerWeek: Number(e.target.value) }))}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(139, 92, 246, 0.4)', color: '#FFF', fontSize: '0.9rem' }}>
+                        <option value={3}>3 Days / Week</option>
+                        <option value={4}>4 Days / Week</option>
+                        <option value={5}>5 Days / Week</option>
+                        <option value={6}>6 Days / Week</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', color: '#CBD5E1', marginBottom: '5px', fontWeight: 700 }}>Available Equipment</label>
+                    <select
+                      value={aiFormFields.equipment}
+                      onChange={e => setAiFormFields(prev => ({ ...prev, equipment: e.target.value }))}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(139, 92, 246, 0.4)', color: '#FFF', fontSize: '0.9rem' }}>
+                      <option value="Full Gym Access">Full Gym Access (Barbells, Cables, Dumbbells, Machines)</option>
+                      <option value="Dumbbells & Bench">Dumbbells & Adjustable Bench</option>
+                      <option value="Home / Bodyweight">Home / Calisthenics Only</option>
+                      <option value="Bands & Kettlebells">Bands & Kettlebells</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.82rem', color: '#CBD5E1', marginBottom: '5px', fontWeight: 700 }}>Injuries / Joint Limitations (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Mild lower back sensitivity, avoid heavy squats"
+                      value={aiFormFields.injuryNotes}
+                      onChange={e => setAiFormFields(prev => ({ ...prev, injuryNotes: e.target.value }))}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(139, 92, 246, 0.4)', color: '#FFF', fontSize: '0.88rem' }}
+                    />
+                  </div>
+
+                  <div style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.25)', padding: '10px 14px', borderRadius: '10px', fontSize: '0.78rem', color: '#E2C9D6', lineHeight: 1.4 }}>
+                    🔒 <strong>Certified Safety Flow:</strong> The AI ML engine will generate an optimal candidate split using cohort biometrics. It will then be queued to your certified coach for final validation and sign-off before being active.
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button type="button" onClick={() => setAiGenModalOpen(false)} style={{ padding: '10px 18px', borderRadius: '10px', background: 'rgba(255,255,255,0.06)', border: 'none', color: '#CBD5E1', fontWeight: 700, cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={requestingAiPlan}
+                      style={{
+                        padding: '10px 22px',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)',
+                        border: 'none',
+                        color: '#FFF',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                      {requestingAiPlan ? <RefreshCw size={16} className="spin" /> : <Sparkles size={16} />}
+                      <span>{requestingAiPlan ? 'Generating via ML Service...' : 'Generate & Submit to Coach'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
 
         </div>
       </main>
-
-      {/* 1. ANIMATED AI COACH DEMO MODAL */}
-      {demoExercise && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '640px', padding: '36px', border: '1px solid var(--peach-primary)', position: 'relative', overflow: 'hidden' }}>
-            <button
-              onClick={() => setDemoExercise(null)}
-              style={{ position: 'absolute', right: '18px', top: '18px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <X size={20} />
-            </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
-              <div className="badge"><Sparkles size={14} /> 3D BIOMECHANICAL REAL AI COACH DEMO</div>
-            </div>
-            <h2 className="gradient-peach-rose" style={{ fontSize: '2rem', fontWeight: 800, margin: '0 0 16px 0' }}>
-              {demoExercise.name}
-            </h2>
-
-            {/* REALISTIC HUMAN ATHLETE VECTOR ANIMATED COACH CONTAINER */}
-            <div style={{ height: '270px', background: 'radial-gradient(circle, rgba(2, 132, 199, 0.15) 0%, rgba(18,3,15,0.95) 80%)', borderRadius: '20px', border: '1px solid rgba(2, 132, 199, 0.3)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden', marginBottom: '22px' }}>
-              <svg width="320" height="200" viewBox="0 0 280 180" style={{ filter: 'drop-shadow(0 0 16px rgba(2, 132, 199, 0.4))' }}>
-                <style>{`
-                  @keyframes crunchFlex { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-22deg); } }
-                  @keyframes plankBreathing { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-3px); } }
-                  @keyframes squatDrive { 0%, 100% { transform: translateY(0px) scaleY(1); } 50% { transform: translateY(30px) scaleY(0.8); } }
-                  @keyframes legRaise { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(18deg); } }
-                  @keyframes musclePulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.95; } }
-                  .human-crunch { animation: crunchFlex 2.4s ease-in-out infinite; transform-origin: 100px 110px; }
-                  .human-plank { animation: plankBreathing 2.2s ease-in-out infinite; }
-                  .human-squat { animation: squatDrive 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite; transform-origin: bottom center; }
-                  .human-leg { animation: legRaise 2.2s ease-in-out infinite; transform-origin: 140px 100px; }
-                  .active-muscle-glow { animation: musclePulse 1.8s ease-in-out infinite; }
-                `}</style>
-
-                {demoExercise.name.toLowerCase().includes('plank') ? (
-                  /* 1. REALISTIC FOREARM PLANK ATHLETE (MATCHING USER IMAGE TOP-RIGHT) */
-                  <g className="human-plank" transform="translate(10, 20)">
-                    {/* Floor Line */}
-                    <line x1="20" y1="135" x2="260" y2="135" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 4" />
-                    
-                    {/* Head & Hair */}
-                    <circle cx="58" cy="65" r="14" fill="#e0a96d" />
-                    <path d="M 46 60 Q 56 46 70 54 Q 68 68 46 60 Z" fill="#4a2e1b" />
-                    {/* Bun/Hair Detail */}
-                    <circle cx="46" cy="58" r="6" fill="#4a2e1b" />
-
-                    {/* Forearms & Hands on Floor */}
-                    <path d="M 68 76 L 50 110 L 42 134 Q 52 135 62 134 L 78 114 Z" fill="#d49455" />
-                    
-                    {/* Blue Athletic Tank Top (Torso) */}
-                    <path d="M 70 70 L 140 78 L 136 108 L 74 105 Z" fill="#0284c7" />
-                    
-                    {/* Dark Shorts */}
-                    <path d="M 136 77 L 175 82 L 168 112 L 134 108 Z" fill="#1e293b" />
-                    
-                    {/* Legs & Feet Profile */}
-                    <path d="M 172 82 L 240 92 Q 248 102 245 132 L 235 132 L 225 106 L 168 110 Z" fill="#e0a96d" />
-                    <path d="M 238 126 L 255 134 L 238 135 Z" fill="#d49455" />
-
-                    {/* Active Muscle Engagement Glow */}
-                    <ellipse cx="105" cy="92" rx="28" ry="12" fill="#38bdf8" opacity="0.6" className="active-muscle-glow" />
-                  </g>
-                ) : demoExercise.name.toLowerCase().includes('crunch') || demoExercise.name.toLowerCase().includes('ab') || demoExercise.name.toLowerCase().includes('twist') ? (
-                  /* 2. REALISTIC AB CRUNCH ATHLETE (MATCHING USER IMAGE TOP-LEFT) */
-                  <g transform="translate(15, 10)">
-                    {/* Floor Line */}
-                    <line x1="20" y1="145" x2="260" y2="145" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 4" />
-                    
-                    {/* Lower Body (Bent Knees & Feet Flat on Floor) */}
-                    <path d="M 130 115 L 170 65 L 205 142 L 225 143 L 180 60 L 120 110 Z" fill="#e0a96d" />
-                    <path d="M 120 110 L 155 118 L 145 142 L 115 142 Z" fill="#1e293b" />
-
-                    {/* Curling Upper Body & Hands Behind Head */}
-                    <g className="human-crunch">
-                      {/* Blue Athletic Shirt */}
-                      <path d="M 60 85 L 125 110 L 145 135 L 75 110 Z" fill="#0284c7" />
-                      
-                      {/* Head & Hair */}
-                      <circle cx="48" cy="72" r="14" fill="#e0a96d" />
-                      <path d="M 38 66 Q 48 52 62 60 Q 58 74 38 66 Z" fill="#4a2e1b" />
-                      
-                      {/* Arms Behind Head */}
-                      <path d="M 68 85 L 42 60 L 35 70 L 60 98 Z" fill="#d49455" />
-
-                      {/* Abs Muscle Engagement Glow */}
-                      <ellipse cx="98" cy="100" rx="18" ry="10" fill="#38bdf8" className="active-muscle-glow" />
-                    </g>
-                  </g>
-                ) : demoExercise.name.toLowerCase().includes('squat') ? (
-                  /* 3. REALISTIC SQUAT ATHLETE (STANDING TO PARALLEL SQUAT) */
-                  <g className="human-squat" transform="translate(80, 10)">
-                    <line x1="-40" y1="165" x2="140" y2="165" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 4" />
-                    
-                    {/* Head & Profile Hair */}
-                    <circle cx="45" cy="22" r="13" fill="#e0a96d" />
-                    <path d="M 34 18 Q 44 6 58 14 Q 54 28 34 18 Z" fill="#4a2e1b" />
-                    
-                    {/* Blue Athletic Top */}
-                    <path d="M 32 35 L 60 35 L 56 82 L 34 82 Z" fill="#0284c7" />
-                    
-                    {/* Extended Arms Forward for Balance */}
-                    <path d="M 35 42 L -15 45 L -15 55 L 35 52 Z" fill="#d49455" />
-                    
-                    {/* Dark Shorts */}
-                    <path d="M 34 82 L 56 82 L 62 110 L 26 110 Z" fill="#1e293b" />
-                    
-                    {/* Thighs & Calves */}
-                    <path d="M 28 110 L 15 163 L 30 163 L 42 110 Z" fill="#e0a96d" />
-                    <path d="M 58 110 L 72 163 L 86 163 L 64 110 Z" fill="#e0a96d" />
-                    
-                    {/* Feet */}
-                    <path d="M 5 163 L 32 163 L 32 168 L 5 168 Z" fill="#d49455" />
-                    <path d="M 62 163 L 90 163 L 90 168 L 62 168 Z" fill="#d49455" />
-
-                    {/* Quad Muscle Glow */}
-                    <ellipse cx="44" cy="98" rx="18" ry="10" fill="#38bdf8" className="active-muscle-glow" />
-                  </g>
-                ) : (
-                  /* 4. REALISTIC BIRD-DOG / ATHLETE EXTENSION (MATCHING USER IMAGE BOTTOM-LEFT) */
-                  <g className="human-plank" transform="translate(15, 20)">
-                    <line x1="20" y1="140" x2="260" y2="140" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeDasharray="4 4" />
-                    
-                    {/* Head */}
-                    <circle cx="178" cy="72" r="13" fill="#e0a96d" />
-                    <path d="M 170 66 Q 180 52 192 60 Q 190 74 170 66 Z" fill="#4a2e1b" />
-                    
-                    {/* Blue Athletic Shirt */}
-                    <path d="M 110 70 L 175 75 L 170 108 L 115 105 Z" fill="#0284c7" />
-                    
-                    {/* Supporting Arms on Floor */}
-                    <path d="M 165 95 L 165 138 L 152 138 L 152 95 Z" fill="#d49455" />
-                    
-                    {/* Dark Shorts */}
-                    <path d="M 85 75 L 115 72 L 115 106 L 80 108 Z" fill="#1e293b" />
-                    
-                    {/* Kneeling Front Leg */}
-                    <path d="M 100 105 L 100 138 L 85 138 L 85 105 Z" fill="#e0a96d" />
-                    
-                    {/* Extended Back Leg in Air (Matching User Image Bottom-Left) */}
-                    <g className="human-leg">
-                      <path d="M 82 78 L 18 50 L 10 62 L 78 95 Z" fill="#e0a96d" />
-                      <path d="M 18 50 L 0 38 L 5 30 L 22 45 Z" fill="#d49455" />
-                    </g>
-
-                    {/* Glute & Core Engagement Glow */}
-                    <ellipse cx="98" cy="85" rx="20" ry="12" fill="#38bdf8" className="active-muscle-glow" />
-                  </g>
-                )}
-              </svg>
-
-              <div style={{ position: 'absolute', bottom: '10px', background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(2, 132, 199, 0.4)', padding: '5px 16px', borderRadius: '16px', fontSize: '0.825rem', color: '#38bdf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Activity size={14} style={{ color: '#4ade80' }} /> High-Definition Real Human Biomechanical Model
-              </div>
-            </div>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.88rem', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-                <div>🔹 <strong>Execution:</strong> {demoExercise.instructions}</div>
-                <div>🔹 <strong>Target Muscle Focus:</strong> <span style={{ color: 'var(--peach-light)', fontWeight: 700 }}>{demoExercise.targetMuscle}</span></div>
-                <div>🔹 <strong>Breathing Rhythm:</strong> Inhale during eccentric descent; exhale forcefully on concentric drive.</div>
-                <div>⚠️ <strong>Mistake Avoidance:</strong> Keep spine in neutral alignment and avoid locking out joints at full extension.</div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
-
-      {/* 2. DAILY SESSION ACCOMPLISHED MODAL */}
-      {achievementData && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.88)', backdropFilter: 'blur(10px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '600px', padding: '40px', textAlign: 'center', border: '2px solid #4ade80', position: 'relative', overflow: 'hidden' }}>
-            <button
-              onClick={() => setAchievementData(null)}
-              style={{ position: 'absolute', right: '18px', top: '18px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <X size={20} />
-            </button>
-
-            <div style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'rgba(74, 222, 128, 0.2)', border: '2px solid #4ade80', color: '#4ade80', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto' }}>
-              <Trophy size={38} />
-            </div>
-
-            <div className="badge" style={{ marginBottom: '8px', background: 'rgba(74, 222, 128, 0.15)', color: '#4ade80', borderColor: '#4ade80' }}>
-              🎉 DAY {achievementData.completedDay} COMPLETED & PERSISTED TO MONGODB
-            </div>
-
-            <h2 className="gradient-peach-rose" style={{ fontSize: '2.2rem', fontWeight: 800, margin: '6px 0 6px 0' }}>
-              Awesome Work!
-            </h2>
-            <p style={{ color: 'var(--peach-soft)', fontSize: '1.05rem', fontWeight: 700, margin: '0 0 16px 0' }}>
-              Automated Advance to <strong>Day {achievementData.nextDay} Workout Split</strong>!
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', margin: '20px 0' }}>
-              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '18px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>Calories Burned</div>
-                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#ff6b4a', marginTop: '4px' }}>
-                  {achievementData.calories} <span style={{ fontSize: '0.85rem' }}>kcal</span>
-                </div>
-              </div>
-
-              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '18px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>XP Points Earned</div>
-                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#facc15', marginTop: '4px' }}>
-                  +{achievementData.xp} <span style={{ fontSize: '0.85rem' }}>XP</span>
-                </div>
-              </div>
-
-              <div style={{ background: 'rgba(255,255,255,0.04)', padding: '18px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-subtle)', textTransform: 'uppercase', fontWeight: 700 }}>Active Streak</div>
-                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#38bdf8', marginTop: '4px' }}>
-                  {achievementData.streak} <span style={{ fontSize: '0.85rem' }}>Days 🔥</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ textAlign: 'left', background: 'rgba(0,0,0,0.3)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.06)', marginBottom: '28px' }}>
-              <div style={{ fontSize: '0.85rem', color: 'var(--peach-soft)', fontWeight: 700, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Award size={16} /> UNLOCKED SESSION ACHIEVEMENTS:
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {achievementData.badges.map((badge, bIdx) => (
-                  <div key={bIdx} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.03)', padding: '10px 14px', borderRadius: '10px' }}>
-                    <CheckCircle2 size={20} style={{ color: '#4ade80', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 700 }}>{badge.title}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-subtle)' }}>{badge.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <button
-              onClick={() => setAchievementData(null)}
-              className="btn-primary"
-              style={{ width: '100%', padding: '14px', fontSize: '1rem' }}
-            >
-              <span>Start Day {achievementData.nextDay} Workout Split ➔</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* 3. GRAND 7-DAY AUTOMATED PROGRAM CHAMPION CELEBRATION MODAL */}
-      {weeklyCompletionData && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(12px)', zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '650px', padding: '44px', textAlign: 'center', border: '3px solid #facc15', position: 'relative', overflow: 'hidden', boxShadow: '0 0 50px rgba(250, 204, 21, 0.25)' }}>
-            
-            <button
-              onClick={() => setWeeklyCompletionData(null)}
-              style={{ position: 'absolute', right: '18px', top: '18px', background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            >
-              <X size={20} />
-            </button>
-
-            <div style={{ width: '84px', height: '84px', borderRadius: '50%', background: 'linear-gradient(135deg, #facc15, #ff6b4a)', color: '#12030f', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', filter: 'drop-shadow(0 0 18px #facc15)' }}>
-              <Crown size={48} />
-            </div>
-
-            <div className="badge" style={{ marginBottom: '10px', background: 'rgba(250, 204, 21, 0.2)', color: '#facc15', borderColor: '#facc15', fontWeight: 800 }}>
-              👑 FULL 7-DAY AUTOMATED PROGRAM FULLY COMPLETED
-            </div>
-
-            <h2 className="gradient-peach-rose" style={{ fontSize: '2.5rem', fontWeight: 800, margin: '6px 0 8px 0' }}>
-              7-Day Master Program Champion!
-            </h2>
-            <p style={{ color: 'var(--text-muted)', fontSize: '1rem', margin: '0 0 24px 0' }}>
-              You completed all 7 workout splits! Here are your total accumulated stats persisted to MongoDB:
-            </p>
-
-            {/* Grand Weekly Totals Cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', margin: '24px 0' }}>
-              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--peach-soft)', textTransform: 'uppercase', fontWeight: 800 }}>7-Day Total Burn</div>
-                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#ff6b4a', marginTop: '4px' }}>
-                  {weeklyCompletionData.totalCalories.toLocaleString()} <span style={{ fontSize: '0.85rem' }}>kcal</span>
-                </div>
-              </div>
-
-              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: '0.75rem', color: '#facc15', textTransform: 'uppercase', fontWeight: 800 }}>7-Day Total XP</div>
-                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#facc15', marginTop: '4px' }}>
-                  +{weeklyCompletionData.totalXP.toLocaleString()} <span style={{ fontSize: '0.85rem' }}>XP</span>
-                </div>
-              </div>
-
-              <div style={{ background: 'rgba(255,255,255,0.05)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                <div style={{ fontSize: '0.75rem', color: '#4ade80', textTransform: 'uppercase', fontWeight: 800 }}>Completion Rate</div>
-                <div style={{ fontSize: '2rem', fontWeight: 800, color: '#4ade80', marginTop: '4px' }}>
-                  {weeklyCompletionData.completionRate}
-                </div>
-              </div>
-            </div>
-
-            {/* Unlocked 7-Day Program Badges */}
-            <div style={{ textAlign: 'left', background: 'rgba(0,0,0,0.35)', padding: '20px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '28px' }}>
-              <div style={{ fontSize: '0.88rem', color: '#facc15', fontWeight: 800, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Award size={18} /> UNLOCKED 7-DAY PROGRAM TITLES & BADGES:
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {weeklyCompletionData.weeklyBadges.map((wBadge, wIdx) => (
-                  <div key={wIdx} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(255,255,255,0.04)', padding: '12px 16px', borderRadius: '12px' }}>
-                    <CheckCircle2 size={22} style={{ color: '#facc15', flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontSize: '0.95rem', color: '#fff', fontWeight: 800 }}>{wBadge.title}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-subtle)' }}>{wBadge.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <button
-                onClick={() => {
-                  setWeeklyCompletionData(null);
-                  setCurrentDay(1);
-                  localStorage.setItem('smartfit_workout_day', '1');
-                  setCompletedState({});
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-                className="btn-primary"
-                style={{ width: '100%', padding: '16px', fontSize: '1.05rem', background: 'linear-gradient(135deg, #facc15, #ff6b4a)', color: '#12030f', fontWeight: 800, cursor: 'pointer' }}
-              >
-                <span>🏋️‍♂️ Back to Workout Page (Start Day 1) ➔</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setWeeklyCompletionData(null);
-                  navigate('/dashboard');
-                }}
-                className="btn-secondary"
-                style={{ width: '100%', padding: '14px', fontSize: '0.95rem', borderColor: 'rgba(255,255,255,0.2)', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
-              >
-                <span>📊 Return to Dashboard</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <Footer />
     </div>

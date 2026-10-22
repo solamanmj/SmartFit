@@ -5,8 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "backend": "cd ../backend && mvn spring-boot:run",
-    "dev:all": "concurrently -k -p \"[{name}]\" -n \"Backend,Frontend\" -c \"cyan,magenta\" \"npm run backend\" \"npm run dev\"",
+    "backend": "cd ../backend && npm run dev",
+    "ml-service": "cd ../ml-service && python -m uvicorn src.main:app --port 8000 --reload",
+    "dev:all": "concurrently -k -p \"[{name}]\" -n \"Backend,ML-Engine,Frontend\" -c \"cyan,yellow,magenta\" \"npm run backend\" \"npm run ml-service\" \"npm run dev\"",
+    "dev-all": "npm run dev:all",
+    "devall": "npm run dev:all",
     "start": "npm run dev:all",
     "build": "vite build",
     "preview": "vite preview"

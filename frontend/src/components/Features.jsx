@@ -62,8 +62,11 @@ export default function Features({ onSelectFeature }) {
   return (
     <section id="why-smartfit" className="why-section">
       <div className="container">
+        {/* Section Header */}
         <div className="section-header">
-          <span className="badge">Why SmartFit?</span>
+          <span className="badge">
+            Why SmartFit?
+          </span>
           <h2 className="section-title">
             Engineered for <span className="gradient-peach-rose">Peak Results</span>
           </h2>
@@ -72,36 +75,43 @@ export default function Features({ onSelectFeature }) {
           </p>
         </div>
 
+        {/* Feature Grid */}
         <div className="why-grid">
-          {featuresList.map((item) => (
-            <div 
-              key={item.id} 
-              className="glass-card why-card"
-              onClick={() => onSelectFeature && onSelectFeature(item)}
-              style={{ cursor: 'pointer' }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div className="why-icon-wrap">
-                  <span style={{ fontSize: '1.6rem' }}>{item.icon}</span>
+          {featuresList.map((item) => {
+            return (
+              <div 
+                key={item.id} 
+                className="glass-card why-card"
+                onClick={() => onSelectFeature && onSelectFeature(item)}
+                style={{ cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div className="why-icon-wrap">
+                    <span style={{ fontSize: '1.6rem' }}>{item.icon}</span>
+                  </div>
+                  <span className="why-card-tag">{item.tag}</span>
                 </div>
-                <span className="why-card-tag">{item.tag}</span>
-              </div>
 
-              <div>
-                <h3 className="why-card-title">{item.title}</h3>
-                <div style={{ fontSize: '0.85rem', color: 'var(--peach-soft)', fontWeight: 600, marginTop: '2px' }}>
-                  {item.subtitle}
+                <div>
+                  <h3 className="why-card-title">
+                    {item.title}
+                  </h3>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--peach-soft)', fontWeight: 600, marginTop: '2px' }}>
+                    {item.subtitle}
+                  </div>
+                </div>
+
+                <p className="why-card-text">
+                  {item.description}
+                </p>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--peach-primary)', fontSize: '0.875rem', fontWeight: 600, marginTop: 'auto' }}>
+                  <span>Learn how it works</span>
+                  <ArrowUpRight size={16} />
                 </div>
               </div>
-
-              <p className="why-card-text">{item.description}</p>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--peach-primary)', fontSize: '0.875rem', fontWeight: 600, marginTop: 'auto' }}>
-                <span>Learn how it works</span>
-                <ArrowUpRight size={16} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

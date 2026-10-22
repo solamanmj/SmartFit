@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Activity, Send, Twitter, Instagram, Linkedin, Github } from 'lucide-react';
+import { Activity, Send, Twitter, Instagram, Linkedin, Github, Heart } from 'lucide-react';
 
 export default function Footer() {
   const [email, setEmail] = useState('');
@@ -18,6 +18,7 @@ export default function Footer() {
     <footer className="footer">
       <div className="container">
         <div className="footer-grid">
+          {/* Brand Col */}
           <div>
             <a href="#home" className="brand-logo">
               <div className="logo-icon-box">
@@ -32,6 +33,7 @@ export default function Footer() {
             </p>
           </div>
 
+          {/* Quick Links */}
           <div>
             <h4 className="footer-heading">Product</h4>
             <ul className="footer-links">
@@ -39,19 +41,23 @@ export default function Footer() {
               <li><a href="#why-smartfit" className="footer-link">Nutrition Plans</a></li>
               <li><a href="#why-smartfit" className="footer-link">Explainable AI (XAI)</a></li>
               <li><a href="#how-it-works" className="footer-link">Methodology</a></li>
+              <li><a href="#home" className="footer-link">Pricing Plans</a></li>
             </ul>
           </div>
 
+          {/* Company Links */}
           <div>
             <h4 className="footer-heading">Company</h4>
             <ul className="footer-links">
               <li><a href="#how-it-works" className="footer-link">About SmartFit</a></li>
-              <li><a href="#home" className="footer-link">Research</a></li>
+              <li><a href="#home" className="footer-link">Scientific Research</a></li>
+              <li><a href="#home" className="footer-link">Careers</a></li>
               <li><a href="#home" className="footer-link">Privacy Policy</a></li>
               <li><a href="#home" className="footer-link">Terms of Service</a></li>
             </ul>
           </div>
 
+          {/* Newsletter */}
           <div>
             <h4 className="footer-heading">Stay Informed</h4>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-subtle)', marginBottom: '14px' }}>
@@ -71,7 +77,7 @@ export default function Footer() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                <button type="submit" className="btn-primary" style={{ padding: '12px 18px' }}>
+                <button type="submit" className="btn-primary" style={{ padding: '12px 18px', borderRadius: 'var(--radius-pill)' }}>
                   <Send size={16} />
                 </button>
               </form>
@@ -79,16 +85,25 @@ export default function Footer() {
           </div>
         </div>
 
+        {/* Footer Bottom */}
         <div className="footer-bottom">
           <div>
             © {new Date().getFullYear()} SmartFit Inc. All rights reserved. Built for intelligent peak performance.
           </div>
 
           <div className="social-icons">
-            <a href="https://twitter.com" target="_blank" rel="noreferrer" className="social-icon-btn"><Twitter size={18} /></a>
-            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="social-icon-btn"><Instagram size={18} /></a>
-            <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="social-icon-btn"><Linkedin size={18} /></a>
-            <a href="https://github.com" target="_blank" rel="noreferrer" className="social-icon-btn"><Github size={18} /></a>
+            <a href="https://twitter.com" target="_blank" rel="noreferrer" className="social-icon-btn" aria-label="Twitter">
+              <Twitter size={18} />
+            </a>
+            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="social-icon-btn" aria-label="Instagram">
+              <Instagram size={18} />
+            </a>
+            <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="social-icon-btn" aria-label="LinkedIn">
+              <Linkedin size={18} />
+            </a>
+            <a href="https://github.com" target="_blank" rel="noreferrer" className="social-icon-btn" aria-label="GitHub">
+              <Github size={18} />
+            </a>
           </div>
         </div>
       </div>

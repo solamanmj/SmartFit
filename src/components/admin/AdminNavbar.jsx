@@ -44,43 +44,68 @@ export default function AdminNavbar({ title, subtitle }) {
           </span>
         </div>
 
-        <NavLink
-          to="/admin/profile"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            textDecoration: 'none',
-            background: 'rgba(250, 204, 21, 0.1)',
-            border: '1px solid rgba(250, 204, 21, 0.3)',
-            padding: '6px 14px',
-            borderRadius: '12px',
-            cursor: 'pointer'
-          }}
-        >
-          <div style={{
-            width: '28px',
-            height: '28px',
-            borderRadius: '50%',
-            background: '#facc15',
-            color: '#12030f',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 800,
-            fontSize: '0.8rem'
-          }}>
-            <ShieldCheck size={16} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>
-              {user?.fullName || 'System Admin'}
+          <NavLink
+            to="/admin/profile"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              textDecoration: 'none',
+              background: 'rgba(250, 204, 21, 0.1)',
+              border: '1px solid rgba(250, 204, 21, 0.3)',
+              padding: '6px 14px',
+              borderRadius: '12px',
+              cursor: 'pointer'
+            }}
+          >
+            <div style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              background: '#facc15',
+              color: '#12030f',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 800,
+              fontSize: '0.8rem'
+            }}>
+              <ShieldCheck size={16} />
             </div>
-            <div style={{ fontSize: '0.7rem', color: '#facc15', fontWeight: 600 }}>
-              {user?.email || 'admin@smartfit.com'}
+            <div>
+              <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#fff' }}>
+                {user?.fullName || 'System Admin'}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#facc15', fontWeight: 600 }}>
+                {user?.email || 'admin@smartfit.com'}
+              </div>
             </div>
-          </div>
-        </NavLink>
+          </NavLink>
+
+          <button
+            onClick={() => {
+              localStorage.removeItem('smartfit_token');
+              localStorage.removeItem('smartfit_user');
+              window.location.href = '/';
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.3)',
+              color: '#fca5a5',
+              padding: '7px 12px',
+              borderRadius: '10px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: '0.2s'
+            }}
+            title="Exit Admin Portal to Home Page"
+          >
+            <span>Exit to Home</span>
+          </button>
       </div>
     </header>
   );

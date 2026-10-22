@@ -22,7 +22,11 @@ export default function CTA({ onOpenGetStarted }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
             <button onClick={onOpenGetStarted} className="btn-primary" style={{ padding: '16px 36px', fontSize: '1.1rem' }}>
-              <span>{user ? 'Go to Dashboard' : 'Get Started Now'}</span>
+              <span>
+                {user 
+                  ? (user.role === 'TRAINER' ? 'Go to Trainer Portal' : user.role === 'NUTRITIONIST' ? 'Go to Nutrition Portal' : user.role === 'ADMIN' ? 'Go to Admin Console' : 'Go to Dashboard') 
+                  : 'Get Started Now'}
+              </span>
               <ArrowRight size={20} />
             </button>
 

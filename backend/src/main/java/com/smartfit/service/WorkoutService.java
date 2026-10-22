@@ -15,20 +15,24 @@ import org.springframework.web.client.RestTemplate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 public class WorkoutService {
 
     private final WorkoutLogRepository workoutLogRepository;
     private final UserRepository userRepository;
+    private final com.smartfit.repository.WorkoutPlanRepository workoutPlanRepository;
     private final RestTemplate restTemplate = new RestTemplate();
 
     private static final String FASTAPI_ML_URL = "http://localhost:8000/predict/workout";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    public WorkoutService(WorkoutLogRepository workoutLogRepository, UserRepository userRepository) {
+    public WorkoutService(WorkoutLogRepository workoutLogRepository, UserRepository userRepository, com.smartfit.repository.WorkoutPlanRepository workoutPlanRepository) {
         this.workoutLogRepository = workoutLogRepository;
         this.userRepository = userRepository;
+        this.workoutPlanRepository = workoutPlanRepository;
+
 
         try {
             if (workoutLogRepository.count() == 0) {
@@ -185,4 +189,144 @@ public class WorkoutService {
         }
         return new ArrayList<>(memoryLogs);
     }
+
+    private final Map<String, com.smartfit.model.WorkoutPlan> planMemoryCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+    // =========================================================================
+    // WORKOUT PLAN APPROVAL & WORKFLOW LIFECYCLE
+    // =========================================================================
+
+    public com.smartfit.model.WorkoutPlan generateAiWorkoutPlanForReview(User user, String trainerEmail) {
+        Map<String, Object> mlRes = getMLWorkoutRecommendation(user);
+        
+        com.smartfit.model.WorkoutPlan plan = new com.smartfit.model.WorkoutPlan();
+        plan.setId(UUID.randomUUID().toString());
+        plan.setUserEmail(user.getEmail());
+        plan.setTrainerEmail(trainerEmail != null ? trainerEmail : "trainer@smartfit.com");
+        plan.setPlanTitle((String) mlRes.getOrDefault("recommendedWorkoutType", "AI Calibrated Split"));
+        plan.setSplitName((String) mlRes.getOrDefault("recommendedWorkoutType", "Full Body Conditioning"));
+        plan.setCategory("Strength & Conditioning");
+        plan.setStatus("PENDING_TRAINER_REVIEW");
+        plan.setAiConfidence(String.valueOf(mlRes.getOrDefault("confidence", "89.4%")));
+        plan.setAiReason((String) mlRes.getOrDefault("reason", "Target Goal Alignment with Anthropometric Biometrics"));
+        plan.setTrainerNotes("AI-generated prescription awaiting professional coach review and load adjustment.");
+        plan.setCreatedAt(LocalDateTime.now().format(DATE_FORMATTER));
+
+        List<com.smartfit.model.WorkoutPlan.PlanExerciseItem> items = new ArrayList<>();
+        if (mlRes.containsKey("recommendations")) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> recs = (List<Map<String, Object>>) mlRes.get("recommendations");
+            for (Map<String, Object> r : recs) {
+                com.smartfit.model.WorkoutPlan.PlanExerciseItem item = new com.smartfit.model.WorkoutPlan.PlanExerciseItem(
+                    (String) r.getOrDefault("exerciseId", UUID.randomUUID().toString()),
+                    (String) r.getOrDefault("exerciseName", "Exercise"),
+                    (String) r.getOrDefault("targetMuscle", "Primary Musculature"),
+                    (String) r.getOrDefault("category", "Compound"),
+                    (String) r.getOrDefault("difficulty", "Intermediate"),
+                    Integer.parseInt(r.getOrDefault("sets", 3).toString()),
+                    String.valueOf(r.getOrDefault("reps", "10-12")),
+                    Integer.parseInt(r.getOrDefault("restSeconds", 60).toString()),
+                    Double.parseDouble(r.getOrDefault("intensityRpe", 7.5).toString()),
+                    Double.parseDouble(r.getOrDefault("confidence", 0.90).toString()),
+                    (String) r.getOrDefault("recommendedAngle", "side"),
+                    (String) r.getOrDefault("instructions", "Perform exercise with strict biomechanical control.")
+                );
+                items.add(item);
+            }
+        }
+        plan.setExercises(items);
+        planMemoryCache.put(plan.getId(), plan);
+
+        try {
+            return workoutPlanRepository.save(plan);
+        } catch (Exception e) {
+            System.err.println("MongoDB workout plan save note: " + e.getMessage());
+            return plan;
+        }
+    }
+
+    public List<com.smartfit.model.WorkoutPlan> getTrainerPendingPlans(String trainerEmail) {
+        try {
+            if (trainerEmail != null && !trainerEmail.isEmpty()) {
+                List<com.smartfit.model.WorkoutPlan> plans = workoutPlanRepository.findByTrainerEmailOrderByCreatedAtDesc(trainerEmail);
+                if (!plans.isEmpty()) return plans;
+            }
+            List<com.smartfit.model.WorkoutPlan> plans = workoutPlanRepository.findByStatusOrderByCreatedAtDesc("PENDING_TRAINER_REVIEW");
+            if (!plans.isEmpty()) return plans;
+        } catch (Exception e) {
+            System.err.println("MongoDB fetch pending plans note: " + e.getMessage());
+        }
+
+        return planMemoryCache.values().stream()
+            .filter(p -> "PENDING_TRAINER_REVIEW".equalsIgnoreCase(p.getStatus()))
+            .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+            .collect(Collectors.toList());
+    }
+
+    public Optional<com.smartfit.model.WorkoutPlan> getWorkoutPlanById(String planId) {
+        try {
+            Optional<com.smartfit.model.WorkoutPlan> p = workoutPlanRepository.findById(planId);
+            if (p.isPresent()) return p;
+        } catch (Exception e) {}
+        return Optional.ofNullable(planMemoryCache.get(planId));
+    }
+
+    public com.smartfit.model.WorkoutPlan modifyWorkoutPlan(String planId, com.smartfit.model.WorkoutPlan updated) {
+        com.smartfit.model.WorkoutPlan plan = getWorkoutPlanById(planId).orElse(updated);
+        
+        plan.setPlanTitle(updated.getPlanTitle() != null ? updated.getPlanTitle() : plan.getPlanTitle());
+        plan.setExercises(updated.getExercises() != null ? updated.getExercises() : plan.getExercises());
+        plan.setTrainerNotes(updated.getTrainerNotes() != null ? updated.getTrainerNotes() : plan.getTrainerNotes());
+        plan.setStatus("MODIFIED");
+        
+        planMemoryCache.put(plan.getId(), plan);
+        try {
+            return workoutPlanRepository.save(plan);
+        } catch (Exception e) {
+            return plan;
+        }
+    }
+
+    public com.smartfit.model.WorkoutPlan approveAndPublishPlan(String planId, String notes) {
+        com.smartfit.model.WorkoutPlan plan = getWorkoutPlanById(planId)
+            .orElseThrow(() -> new RuntimeException("Workout Plan not found with id: " + planId));
+        
+        plan.setStatus("APPROVED");
+        plan.setApprovedAt(LocalDateTime.now().format(DATE_FORMATTER));
+        if (notes != null && !notes.trim().isEmpty()) {
+            plan.setTrainerNotes(notes);
+        }
+        
+        planMemoryCache.put(plan.getId(), plan);
+        try {
+            return workoutPlanRepository.save(plan);
+        } catch (Exception e) {
+            System.err.println("MongoDB approve plan save note: " + e.getMessage());
+            return plan;
+        }
+    }
+
+    public Optional<com.smartfit.model.WorkoutPlan> getUserActiveWorkoutPlan(String userEmail) {
+        try {
+            Optional<com.smartfit.model.WorkoutPlan> approved = workoutPlanRepository.findFirstByUserEmailAndStatusOrderByCreatedAtDesc(userEmail, "APPROVED");
+            if (approved.isPresent()) return approved;
+            
+            // Check if there is an in-progress or published plan
+            List<com.smartfit.model.WorkoutPlan> allUserPlans = workoutPlanRepository.findByUserEmailOrderByCreatedAtDesc(userEmail);
+            for (com.smartfit.model.WorkoutPlan p : allUserPlans) {
+                if ("APPROVED".equalsIgnoreCase(p.getStatus()) || "PUBLISHED".equalsIgnoreCase(p.getStatus())) {
+                    return Optional.of(p);
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("MongoDB fetch user active plan note: " + e.getMessage());
+        }
+
+        // Check memory cache
+        return planMemoryCache.values().stream()
+            .filter(p -> userEmail != null && userEmail.equalsIgnoreCase(p.getUserEmail()) && "APPROVED".equalsIgnoreCase(p.getStatus()))
+            .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+            .findFirst();
+    }
 }
+

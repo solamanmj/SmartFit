@@ -29,7 +29,11 @@ export default function Hero({ onOpenGetStarted, onScrollToFeatures }) {
                 className="btn-primary" 
                 onClick={onOpenGetStarted}
               >
-                <span>{user ? 'Go to Dashboard' : 'Get Started Now'}</span>
+                <span>
+                  {user 
+                    ? (user.role === 'TRAINER' ? 'Go to Trainer Portal' : user.role === 'NUTRITIONIST' ? 'Go to Nutrition Portal' : user.role === 'ADMIN' ? 'Go to Admin Console' : 'Go to Dashboard') 
+                    : 'Get Started Now'}
+                </span>
                 <ArrowRight size={18} />
               </button>
 

@@ -15,7 +15,7 @@ if (-not $testMongo.TcpTestSucceeded) {
     Write-Host " [SUCCESS] Local MongoDB Server is active on Port 27017." -ForegroundColor Green
 }
 
-Write-Host " Starting Spring Boot Backend API (Port 8081)..." -ForegroundColor Green
+Write-Host " Starting Node.js Express Backend API (Port 8081)..." -ForegroundColor Green
 Write-Host " Starting FastAPI Python ML Engine (Port 8000)..." -ForegroundColor Green
 Write-Host " Starting Vite React Frontend (Port 5173)..." -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Cyan

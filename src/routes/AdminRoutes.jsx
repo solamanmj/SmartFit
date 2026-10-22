@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import ProtectedRoute from '../components/ProtectedRoute';
+import AdminProtectedRoute from '../admin/components/AdminProtectedRoute';
+import AdminLayout from '../admin/components/AdminLayout';
 
 import AdminLogin from '../pages/admin/AdminLogin';
 import AdminDashboard from '../pages/admin/AdminDashboard';
@@ -17,20 +18,31 @@ import AdminProfile from '../pages/admin/AdminProfile';
 export default function AdminRoutes() {
   return (
     <Routes>
+      {/* Public Admin Login */}
       <Route path="login" element={<AdminLogin />} />
 
-      <Route path="dashboard" element={<ProtectedRoute adminOnly={true}><AdminDashboard /></ProtectedRoute>} />
-      <Route path="users" element={<ProtectedRoute adminOnly={true}><AdminUsers /></ProtectedRoute>} />
-      <Route path="trainers" element={<ProtectedRoute adminOnly={true}><AdminTrainers /></ProtectedRoute>} />
-      <Route path="nutritionists" element={<ProtectedRoute adminOnly={true}><AdminNutritionists /></ProtectedRoute>} />
-      <Route path="exercises" element={<ProtectedRoute adminOnly={true}><AdminExercises /></ProtectedRoute>} />
-      <Route path="nutrition" element={<ProtectedRoute adminOnly={true}><AdminNutrition /></ProtectedRoute>} />
-      <Route path="recommendations" element={<ProtectedRoute adminOnly={true}><AdminRecommendations /></ProtectedRoute>} />
-      <Route path="analytics" element={<ProtectedRoute adminOnly={true}><AdminAnalytics /></ProtectedRoute>} />
-      <Route path="feedback" element={<ProtectedRoute adminOnly={true}><AdminFeedback /></ProtectedRoute>} />
-      <Route path="profile" element={<ProtectedRoute adminOnly={true}><AdminProfile /></ProtectedRoute>} />
-
-      <Route path="*" element={<Navigate to="dashboard" replace />} />
+      {/* Standalone Admin Panel Routes with Strict Role Protection */}
+      <Route
+        path="*"
+        element={
+          <AdminProtectedRoute>
+            <Routes>
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="trainers" element={<AdminTrainers />} />
+              <Route path="nutritionists" element={<AdminNutritionists />} />
+              <Route path="exercises" element={<AdminExercises />} />
+              <Route path="nutrition" element={<AdminNutrition />} />
+              <Route path="recommendations" element={<AdminRecommendations />} />
+              <Route path="analytics" element={<AdminAnalytics />} />
+              <Route path="feedback" element={<AdminFeedback />} />
+              <Route path="profile" element={<AdminProfile />} />
+              <Route path="settings" element={<AdminProfile />} />
+              <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+            </Routes>
+          </AdminProtectedRoute>
+        }
+      />
     </Routes>
   );
 }

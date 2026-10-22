@@ -11,7 +11,11 @@ export default function HowItWorks({ onOpenGetStarted }) {
       icon: UserPlus,
       subtitle: 'Input biometric markers & activity history',
       description: 'Quickly set up your profile by detailing age, weight, target metrics, dietary preferences, available gym equipment, and historical activity data.',
-      highlights: ['Biometric data integration', 'Dietary preference mapping', 'Health & injury history assessment']
+      highlights: [
+        'Biometric data integration',
+        'Dietary preference mapping',
+        'Health & injury history assessment'
+      ]
     },
     {
       num: '02',
@@ -19,7 +23,11 @@ export default function HowItWorks({ onOpenGetStarted }) {
       icon: Target,
       subtitle: 'Define target timelines & milestones',
       description: 'Choose whether your primary focus is hyper-trophy muscle gain, fat loss, athletic endurance, or overall longevity. SmartFit configures your roadmap.',
-      highlights: ['Custom body composition targets', 'Weekly commitment scheduling', 'Intelligent goal breakdown']
+      highlights: [
+        'Custom body composition targets',
+        'Weekly commitment scheduling',
+        'Intelligent goal breakdown'
+      ]
     },
     {
       num: '03',
@@ -27,7 +35,11 @@ export default function HowItWorks({ onOpenGetStarted }) {
       icon: Cpu,
       subtitle: 'Instant AI workout & meal generation',
       description: 'Our proprietary Explainable AI generates hyper-personalized daily workout splits, calorie-macronutrient targets, and optimal rest schedules.',
-      highlights: ['Adaptive daily workout plans', 'Precision macro meal guides', 'Rest & recovery score optimization']
+      highlights: [
+        'Adaptive daily workout plans',
+        'Precision macro meal guides',
+        'Rest & recovery score optimization'
+      ]
     },
     {
       num: '04',
@@ -35,7 +47,11 @@ export default function HowItWorks({ onOpenGetStarted }) {
       icon: LineChart,
       subtitle: 'Log workouts, meals & physiological signals',
       description: 'Seamlessly log sets, reps, heart rate, sleep quality, and daily energy levels. SmartFit analyzes patterns in real-time.',
-      highlights: ['One-tap workout logger', 'Automated macro tracking', 'Visual transformation timelines']
+      highlights: [
+        'One-tap workout logger',
+        'Automated macro tracking',
+        'Visual transformation timelines'
+      ]
     },
     {
       num: '05',
@@ -43,7 +59,11 @@ export default function HowItWorks({ onOpenGetStarted }) {
       icon: RefreshCw,
       subtitle: 'Continuous neural feedback loops',
       description: 'Hit a plateau or missed a workout? SmartFit dynamically recalculates your upcoming weeks to keep you progressing safely without burnout.',
-      highlights: ['Auto-progressive overload adjustment', 'Dynamic deload week calculation', 'Real-time plateau prevention']
+      highlights: [
+        'Auto-progressive overload adjustment',
+        'Dynamic deload week calculation',
+        'Real-time plateau prevention'
+      ]
     }
   ];
 
@@ -53,8 +73,11 @@ export default function HowItWorks({ onOpenGetStarted }) {
   return (
     <section id="how-it-works" className="how-section">
       <div className="container">
+        {/* Section Header */}
         <div className="section-header">
-          <span className="badge">Simple 5-Step Process</span>
+          <span className="badge">
+            Simple 5-Step Process
+          </span>
           <h2 className="section-title">
             How <span className="gradient-peach-rose">SmartFit Works</span>
           </h2>
@@ -63,7 +86,9 @@ export default function HowItWorks({ onOpenGetStarted }) {
           </p>
         </div>
 
+        {/* Interactive Steps Layout */}
         <div className="how-interactive-container">
+          {/* Step Timeline Buttons */}
           <div className="steps-list">
             {steps.map((step, idx) => {
               const Icon = step.icon;
@@ -84,6 +109,7 @@ export default function HowItWorks({ onOpenGetStarted }) {
             })}
           </div>
 
+          {/* Interactive Preview Panel */}
           <div className="glass-card step-preview-card">
             <div className="badge step-preview-badge">
               <Sparkles size={14} /> Step {currentStep.num} Preview
@@ -94,12 +120,18 @@ export default function HowItWorks({ onOpenGetStarted }) {
                 <StepIcon size={28} />
               </div>
               <div>
-                <h3 className="step-preview-title gradient-text">{currentStep.title}</h3>
-                <span style={{ fontSize: '0.9rem', color: 'var(--peach-soft)', fontWeight: 600 }}>{currentStep.subtitle}</span>
+                <h3 className="step-preview-title gradient-text">
+                  {currentStep.title}
+                </h3>
+                <span style={{ fontSize: '0.9rem', color: 'var(--peach-soft)', fontWeight: 600 }}>
+                  {currentStep.subtitle}
+                </span>
               </div>
             </div>
 
-            <p className="step-preview-desc">{currentStep.description}</p>
+            <p className="step-preview-desc">
+              {currentStep.description}
+            </p>
 
             <div className="step-features-list">
               {currentStep.highlights.map((item, i) => (

@@ -13,9 +13,43 @@ import java.util.List;
 public class UserController {
 
     private final UserService userService;
+    private final com.smartfit.service.NutritionistService nutritionistService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, com.smartfit.service.NutritionistService nutritionistService) {
         this.userService = userService;
+        this.nutritionistService = nutritionistService;
+    }
+
+    @GetMapping("/meal-schedule")
+    public ResponseEntity<?> getMealSchedule(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String date) {
+        String clientEmail = (email != null && !email.trim().isEmpty()) ? email.trim() : "aby@example.com";
+        String targetDate = (date != null && !date.trim().isEmpty()) ? date.trim() : new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date());
+        com.smartfit.model.MealSchedule schedule = nutritionistService.getMealScheduleForUser(clientEmail, targetDate);
+        return ResponseEntity.ok(schedule != null ? schedule : java.util.Map.of());
+    }
+
+    @PostMapping("/meal-schedule/log-slot")
+    public ResponseEntity<?> logMealSlot(@RequestBody java.util.Map<String, Object> body) {
+        String userEmail = (String) body.getOrDefault("userEmail", "aby@example.com");
+        String date = (String) body.get("date");
+        String slotId = (String) body.get("slotId");
+        String status = (String) body.getOrDefault("consumptionStatus", "COMPLETED");
+        int portionPct = 100;
+        if (body.get("actualPortionEatenPct") instanceof Number) {
+            portionPct = ((Number) body.get("actualPortionEatenPct")).intValue();
+        }
+        String substitutedWith = (String) body.get("substitutedWith");
+        String notes = (String) body.get("clientFeedbackNotes");
+
+        com.smartfit.model.MealSchedule updated = nutritionistService.updateMealSlotConsumption(
+                userEmail, date, slotId, status, portionPct, substitutedWith, notes
+        );
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(java.util.Map.of("message", "Meal slot recorded as " + status, "schedule", updated));
     }
 
     @GetMapping("/all")

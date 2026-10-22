@@ -15,7 +15,10 @@ const Workout = lazy(() => import('./pages/Workout'));
 const Nutrition = lazy(() => import('./pages/Nutrition'));
 const Progress = lazy(() => import('./pages/Progress'));
 const Challenges = lazy(() => import('./pages/Challenges'));
+const VirtualWorkoutStudio = lazy(() => import('./pages/VirtualWorkoutStudio'));
 const AdminRoutes = lazy(() => import('./routes/AdminRoutes'));
+const TrainerDashboard = lazy(() => import('./pages/TrainerDashboard'));
+const NutritionistDashboard = lazy(() => import('./pages/NutritionistDashboard'));
 
 function App() {
   return (
@@ -32,11 +35,97 @@ function App() {
               {/* Standalone Admin Portal Routes */}
               <Route path="/admin/*" element={<AdminRoutes />} />
 
-              {/* Protected User Routes */}
+              {/* Standalone Trainer & Nutritionist Portals */}
+              <Route 
+                path="/trainer-dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['TRAINER', 'ADMIN']}>
+                    <TrainerDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist-dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/dashboard" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/clients" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/clients/:clientId" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/assessments" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/meal-plans" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/meal-plans/create" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/food-database" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/reports" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/login" 
+                element={<LoginPage />} 
+              />
+
+              {/* Protected User-Only Routes */}
               <Route 
                 path="/dashboard" 
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['USER']}>
                     <Dashboard />
                   </ProtectedRoute>
                 } 
@@ -52,15 +141,23 @@ function App() {
               <Route 
                 path="/workout" 
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['USER']}>
                     <Workout />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/workout-studio" 
+                element={
+                  <ProtectedRoute allowedRoles={['USER', 'TRAINER', 'ADMIN']}>
+                    <VirtualWorkoutStudio />
                   </ProtectedRoute>
                 } 
               />
               <Route 
                 path="/nutrition" 
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['USER']}>
                     <Nutrition />
                   </ProtectedRoute>
                 } 
@@ -68,7 +165,7 @@ function App() {
               <Route 
                 path="/progress" 
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['USER']}>
                     <Progress />
                   </ProtectedRoute>
                 } 
@@ -76,7 +173,15 @@ function App() {
               <Route 
                 path="/challenges" 
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['USER']}>
+                    <Challenges />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/supplements" 
+                element={
+                  <ProtectedRoute allowedRoles={['USER']}>
                     <Challenges />
                   </ProtectedRoute>
                 } 

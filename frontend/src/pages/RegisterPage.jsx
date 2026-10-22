@@ -2,7 +2,10 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { Sparkles, ArrowRight, ArrowLeft, ShieldAlert, Activity, HeartPulse, Lock, Eye, EyeOff, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { 
+  Sparkles, ArrowRight, ArrowLeft, ShieldAlert, Activity, HeartPulse, 
+  Lock, Eye, EyeOff, CheckCircle2, Circle, AlertCircle, ShieldCheck, Check, X 
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { registerUserApi } from '../services/api';
 
@@ -11,6 +14,7 @@ export default function RegisterPage() {
   const { register } = useAuth();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [validationError, setValidationError] = useState('');
   const [backendError, setBackendError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -31,14 +35,28 @@ export default function RegisterPage() {
     medicalConditions: 'None'
   });
 
-  // Password Security Regex Validation Rules
-  const hasMinLength = formData.password.length >= 8;
-  const hasUpper = /[A-Z]/.test(formData.password);
-  const hasLower = /[a-z]/.test(formData.password);
-  const hasNumber = /\d/.test(formData.password);
-  const hasSpecial = /[@$!%*?&#^()_+\-=\[\]{}|;:',.<>/]/.test(formData.password);
-  const passwordsMatch = formData.password === formData.confirmPassword && formData.confirmPassword.length > 0;
-  const isPasswordStrong = hasMinLength && hasUpper && hasLower && hasNumber && hasSpecial;
+  const passwordCriteria = [
+    { id: 'length', label: '8+ characters', met: formData.password.length >= 8 },
+    { id: 'upper', label: 'Uppercase (A-Z)', met: /[A-Z]/.test(formData.password) },
+    { id: 'lower', label: 'Lowercase (a-z)', met: /[a-z]/.test(formData.password) },
+    { id: 'number', label: 'Number (0-9)', met: /\d/.test(formData.password) },
+    { id: 'special', label: 'Special symbol (@$!%*#...)', met: /[@$!%*?&#^()_+\-=[\]{}|;:',.<>/]/.test(formData.password) }
+  ];
+
+  const passedCriteriaCount = passwordCriteria.filter(c => c.met).length;
+  const isPasswordStrong = passedCriteriaCount === 5;
+  const passwordsMatch = Boolean(formData.confirmPassword && formData.password === formData.confirmPassword);
+
+  const getStrengthInfo = () => {
+    if (!formData.password) return { label: '', percent: 0, color: 'rgba(255,255,255,0.1)' };
+    if (passedCriteriaCount <= 1) return { label: 'Very Weak', percent: 20, color: '#EF4444' };
+    if (passedCriteriaCount === 2) return { label: 'Weak', percent: 40, color: '#F97316' };
+    if (passedCriteriaCount === 3) return { label: 'Moderate', percent: 60, color: '#FBBF24' };
+    if (passedCriteriaCount === 4) return { label: 'Good', percent: 80, color: '#34D399' };
+    return { label: 'Very Strong', percent: 100, color: '#10B981' };
+  };
+
+  const strengthInfo = getStrengthInfo();
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -52,32 +70,22 @@ export default function RegisterPage() {
     setBackendError('');
 
     if (step === 1) {
-      // 1. Email Format Check
       const emailRegex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$/;
       if (!emailRegex.test(formData.email.trim())) {
         setValidationError('Please enter a valid email address (e.g. alex@example.com).');
         return;
       }
 
-      // 2. Full Name Check
-      if (formData.fullName.trim().length < 2) {
-        setValidationError('Full Name must be at least 2 characters long.');
-        return;
-      }
-
-      // 3. Password Strength Security Check
       if (!isPasswordStrong) {
-        setValidationError('Password does not meet security requirements. Check requirements below.');
+        setValidationError('Password must meet all 5 requirements: at least 8 characters, uppercase, lowercase, number, and special character.');
         return;
       }
 
-      // 4. Confirm Password Match Check
       if (!passwordsMatch) {
         setValidationError('Passwords do not match. Please verify both password fields.');
         return;
       }
 
-      // 5. Biometric Range Validation
       const ageNum = parseInt(formData.age, 10);
       const heightNum = parseFloat(formData.height);
       const weightNum = parseFloat(formData.weight);
@@ -101,37 +109,50 @@ export default function RegisterPage() {
       setStep(3);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      // Final Step: Submit Registration to Backend API & Context
       setIsSubmitting(true);
-      try {
-        const payload = {
-          fullName: formData.fullName.trim(),
-          email: formData.email.trim().toLowerCase(),
-          password: formData.password,
-          age: parseInt(formData.age, 10),
-          gender: formData.gender,
-          height: parseFloat(formData.height),
-          weight: parseFloat(formData.weight),
-          activityLevel: formData.activityLevel,
-          fitnessGoal: formData.fitnessGoal,
-          dietaryPreference: formData.dietaryPreference,
-          workoutEquipment: formData.workoutEquipment,
-          medicalConditions: formData.medicalConditions
-        };
+      const payload = {
+        fullName: formData.fullName.trim() || formData.email.trim().split('@')[0],
+        email: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        age: parseInt(formData.age, 10) || 26,
+        gender: formData.gender || 'Male',
+        height: parseFloat(formData.height) || 178,
+        weight: parseFloat(formData.weight) || 75,
+        activityLevel: formData.activityLevel || 'Moderately Active',
+        fitnessGoal: formData.fitnessGoal || 'Muscle Building',
+        dietaryPreference: formData.dietaryPreference || 'Standard Balanced',
+        workoutEquipment: formData.workoutEquipment || 'Full Gym Access',
+        medicalConditions: formData.medicalConditions || 'None'
+      };
 
+      try {
         const res = await registerUserApi(payload);
         if (res && res.token) {
-          register(payload, res.token);
-          navigate('/profile');
+          register(res.user || payload, res.token);
+          setIsSubmitting(false);
+          navigate('/dashboard');
         } else {
           setBackendError(res?.message || 'Registration failed. Please try again.');
           setIsSubmitting(false);
         }
       } catch (err) {
         console.warn('Registration API note:', err.message);
-        // Fallback local registration if backend unreachable
-        register(formData);
-        navigate('/profile');
+        if (err.message && (
+          err.message.includes('already registered') || 
+          err.message.includes('Password must') || 
+          err.message.includes('Full name') || 
+          err.message.includes('valid email') ||
+          err.message.includes('Age must') ||
+          err.message.includes('Height must') ||
+          err.message.includes('Weight must')
+        )) {
+          setBackendError(err.message);
+          setIsSubmitting(false);
+        } else {
+          register(payload);
+          setIsSubmitting(false);
+          navigate('/dashboard');
+        }
       }
     }
   };
@@ -178,15 +199,21 @@ export default function RegisterPage() {
             )}
 
             {backendError && (
-              <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '12px', padding: '14px 18px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '12px', color: '#fca5a5' }}>
-                <AlertCircle size={20} style={{ color: '#ef4444', flexShrink: 0 }} />
-                <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>Backend Error: {backendError}</span>
+              <div style={{ background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', borderRadius: '12px', padding: '14px 18px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', color: '#fca5a5' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <AlertCircle size={20} style={{ color: '#ef4444', flexShrink: 0 }} />
+                  <span style={{ fontSize: '0.9rem', fontWeight: 600 }}>{backendError}</span>
+                </div>
+                {backendError.includes('already registered') && (
+                  <Link to="/login" style={{ color: 'var(--peach-primary)', fontWeight: 700, fontSize: '0.85rem', textDecoration: 'underline' }}>
+                    Click here to Login &rarr;
+                  </Link>
+                )}
               </div>
             )}
 
             <form onSubmit={handleNextStep}>
 
-              {/* STEP 1: Login Credentials & Strong Password Security */}
               {step === 1 && (
                 <div>
                   <h3 style={{ fontSize: '1.4rem', color: 'var(--peach-light)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -194,6 +221,7 @@ export default function RegisterPage() {
                     1. Account Credentials & Security
                   </h3>
 
+                  {/* Full Name Field */}
                   <div className="form-group">
                     <label className="form-label">Full Name</label>
                     <input
@@ -202,38 +230,82 @@ export default function RegisterPage() {
                       placeholder="Alex Morgan"
                       value={formData.fullName}
                       onChange={(e) => handleChange('fullName', e.target.value)}
-                      required
                     />
                   </div>
 
+                  {/* Email Address with Dynamic Live Validation */}
                   <div className="form-group">
-                    <label className="form-label">Email Address (Login Username)</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                      <label className="form-label" style={{ margin: 0 }}>Email Address (Login Username)</label>
+                      {formData.email.trim().length > 0 && (
+                        <span style={{ 
+                          fontSize: '0.75rem', 
+                          fontWeight: 700, 
+                          color: /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$/.test(formData.email.trim()) ? '#34D399' : '#EF4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          {/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$/.test(formData.email.trim()) ? (
+                            <><CheckCircle2 size={13} color="#34D399" /> Valid Email Format</>
+                          ) : (
+                            <><AlertCircle size={13} color="#EF4444" /> Enter valid email address</>
+                          )}
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="email"
                       className="form-input"
                       placeholder="alex@example.com"
                       value={formData.email}
                       onChange={(e) => handleChange('email', e.target.value)}
+                      style={{
+                        borderColor: formData.email ? (/^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,6}$/.test(formData.email.trim()) ? 'rgba(52, 211, 153, 0.5)' : 'rgba(239, 68, 68, 0.5)') : undefined
+                      }}
                       required
                     />
                   </div>
 
+                  {/* Password & Confirm Password Inputs */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                     <div className="form-group">
-                      <label className="form-label">Create Password</label>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <label className="form-label" style={{ margin: 0 }}>Create Password</label>
+                        {formData.password.length > 0 && (
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            fontWeight: 700, 
+                            color: strengthInfo.color,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            {isPasswordStrong && <CheckCircle2 size={13} color="#10B981" />}
+                            {strengthInfo.label}
+                          </span>
+                        )}
+                      </div>
                       <div style={{ position: 'relative' }}>
                         <input
                           type={showPassword ? 'text' : 'password'}
                           className="form-input"
-                          placeholder="Strong Password"
+                          placeholder="Min. 8 chars, mixed case & symbols"
                           value={formData.password}
                           onChange={(e) => handleChange('password', e.target.value)}
+                          style={{ 
+                            paddingRight: '42px',
+                            borderColor: formData.password 
+                              ? (isPasswordStrong ? 'rgba(16, 185, 129, 0.55)' : strengthInfo.percent >= 60 ? 'rgba(251, 191, 36, 0.55)' : 'rgba(239, 68, 68, 0.55)') 
+                              : undefined
+                          }}
                           required
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-subtle)', cursor: 'pointer' }}
+                          style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#B392A5', cursor: 'pointer', padding: 0 }}
+                          title={showPassword ? 'Hide password' : 'Show password'}
                         >
                           {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                         </button>
@@ -241,44 +313,108 @@ export default function RegisterPage() {
                     </div>
 
                     <div className="form-group">
-                      <label className="form-label">Confirm Password</label>
-                      <input
-                        type={showPassword ? 'text' : 'password'}
-                        className="form-input"
-                        placeholder="Re-enter Password"
-                        value={formData.confirmPassword}
-                        onChange={(e) => handleChange('confirmPassword', e.target.value)}
-                        required
-                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <label className="form-label" style={{ margin: 0 }}>Confirm Password</label>
+                        {formData.confirmPassword && (
+                          <span style={{ 
+                            fontSize: '0.75rem', 
+                            fontWeight: 700, 
+                            color: passwordsMatch ? '#34D399' : '#EF4444',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            {passwordsMatch ? <><CheckCircle2 size={13} color="#34D399" /> Matches</> : <><AlertCircle size={13} color="#EF4444" /> Must match</>}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ position: 'relative' }}>
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          className="form-input"
+                          placeholder="Re-enter password"
+                          value={formData.confirmPassword}
+                          onChange={(e) => handleChange('confirmPassword', e.target.value)}
+                          style={{
+                            borderColor: formData.confirmPassword ? (passwordsMatch ? 'rgba(52, 211, 153, 0.55)' : 'rgba(239, 68, 68, 0.55)') : undefined,
+                            paddingRight: '42px'
+                          }}
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#B392A5', cursor: 'pointer', padding: 0 }}
+                          title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Password Security Strength Requirements Indicator */}
-                  <div style={{ background: 'rgba(255, 158, 125, 0.06)', border: '1px solid var(--glass-border)', borderRadius: '14px', padding: '16px', margin: '12px 0 20px 0' }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--peach-light)', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <ShieldCheck size={16} /> Password Security Checklist:
+                  {/* Dynamic Live Password Strength & Criteria Validation */}
+                  {formData.password.length > 0 && (
+                    <div style={{ 
+                      marginTop: '4px',
+                      marginBottom: '16px',
+                      padding: '12px 14px', 
+                      background: 'rgba(255, 255, 255, 0.03)', 
+                      borderRadius: '12px', 
+                      border: '1px solid rgba(255, 255, 255, 0.08)' 
+                    }}>
+                      {/* Real-time Strength Meter Bar */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#B392A5', fontWeight: 600 }}>Password Strength</span>
+                        <span style={{ fontSize: '0.78rem', color: strengthInfo.color, fontWeight: 700 }}>{strengthInfo.label}</span>
+                      </div>
+                      <div style={{ 
+                        height: '4px', 
+                        width: '100%', 
+                        background: 'rgba(255, 255, 255, 0.1)', 
+                        borderRadius: '4px', 
+                        overflow: 'hidden',
+                        marginBottom: '10px'
+                      }}>
+                        <div style={{ 
+                          height: '100%', 
+                          width: `${strengthInfo.percent}%`, 
+                          background: strengthInfo.color, 
+                          borderRadius: '4px',
+                          transition: 'width 0.3s ease, background-color 0.3s ease'
+                        }} />
+                      </div>
+
+                      {/* Live Validation Criteria Badges */}
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        {passwordCriteria.map(item => (
+                          <div 
+                            key={item.id}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              fontSize: '0.72rem',
+                              fontWeight: 600,
+                              padding: '3px 8px',
+                              borderRadius: '20px',
+                              background: item.met ? 'rgba(52, 211, 153, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                              color: item.met ? '#34D399' : '#8A7080',
+                              border: `1px solid ${item.met ? 'rgba(52, 211, 153, 0.3)' : 'rgba(255, 255, 255, 0.06)'}`,
+                              transition: 'all 0.25s ease'
+                            }}
+                          >
+                            {item.met ? (
+                              <Check size={11} strokeWidth={3} color="#34D399" />
+                            ) : (
+                              <Circle size={6} fill="currentColor" color="currentColor" style={{ opacity: 0.4 }} />
+                            )}
+                            <span>{item.label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.82rem' }}>
-                      <div style={{ color: hasMinLength ? '#4ade80' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {hasMinLength ? <CheckCircle2 size={14} /> : '○'} At least 8 characters
-                      </div>
-                      <div style={{ color: hasUpper ? '#4ade80' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {hasUpper ? <CheckCircle2 size={14} /> : '○'} 1 Uppercase letter (A-Z)
-                      </div>
-                      <div style={{ color: hasLower ? '#4ade80' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {hasLower ? <CheckCircle2 size={14} /> : '○'} 1 Lowercase letter (a-z)
-                      </div>
-                      <div style={{ color: hasNumber ? '#4ade80' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {hasNumber ? <CheckCircle2 size={14} /> : '○'} 1 Numeric digit (0-9)
-                      </div>
-                      <div style={{ color: hasSpecial ? '#4ade80' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {hasSpecial ? <CheckCircle2 size={14} /> : '○'} 1 Special character (@$!%*?)
-                      </div>
-                      <div style={{ color: passwordsMatch ? '#4ade80' : 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {passwordsMatch ? <CheckCircle2 size={14} /> : '○'} Passwords match
-                      </div>
-                    </div>
-                  </div>
+                  )}
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '16px' }}>
                     <div className="form-group">
@@ -342,7 +478,6 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              {/* STEP 2: Lifestyle, Activity, Goals & Dietary Preference */}
               {step === 2 && (
                 <div>
                   <h3 style={{ fontSize: '1.4rem', color: 'var(--peach-light)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -418,7 +553,6 @@ export default function RegisterPage() {
                 </div>
               )}
 
-              {/* STEP 3: Equipment & Medical Conditions */}
               {step === 3 && (
                 <div>
                   <h3 style={{ fontSize: '1.4rem', color: 'var(--peach-light)', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '10px' }}>

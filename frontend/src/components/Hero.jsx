@@ -1,7 +1,9 @@
 import React from 'react';
-import { Sparkles, ArrowRight, Zap, CheckCircle2, TrendingUp, Award, ShieldCheck, Flame } from 'lucide-react';
+import { Sparkles, ArrowRight, Zap, CheckCircle2, TrendingUp, Award, ShieldCheck } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Hero({ onOpenGetStarted, onScrollToFeatures }) {
+  const { user } = useAuth();
   return (
     <section id="home" className="hero-section">
       <div className="container">
@@ -27,7 +29,11 @@ export default function Hero({ onOpenGetStarted, onScrollToFeatures }) {
                 className="btn-primary" 
                 onClick={onOpenGetStarted}
               >
-                <span>Get Started Now</span>
+                <span>
+                  {user 
+                    ? (user.role === 'TRAINER' ? 'Go to Trainer Portal' : user.role === 'NUTRITIONIST' ? 'Go to Nutrition Portal' : user.role === 'ADMIN' ? 'Go to Admin Console' : 'Go to Dashboard') 
+                    : 'Get Started Now'}
+                </span>
                 <ArrowRight size={18} />
               </button>
 

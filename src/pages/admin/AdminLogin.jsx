@@ -33,9 +33,15 @@ export default function AdminLogin() {
       const res = await loginUserApi({ email: cleanEmail, password });
 
       if (res && res.token && res.user) {
-        setSubmitted(true);
-        // Force ADMIN role for Admin Portal session
+        const userRole = res.user.role || (cleanEmail === 'admin@smartfit.com' ? 'ADMIN' : 'USER');
+        if (userRole !== 'ADMIN') {
+          setLoginError(`Access Denied: Account '${cleanEmail}' does not have administrative privileges.`);
+          setIsSubmitting(false);
+          return;
+        }
+
         const adminUser = { ...res.user, role: 'ADMIN' };
+        setSubmitted(true);
         login(adminUser.email, password, res.token, adminUser);
 
         setLoginMessage(`Welcome Administrator ${adminUser.fullName || adminUser.email}! Loading Control Panel...`);
@@ -47,7 +53,13 @@ export default function AdminLogin() {
         setIsSubmitting(false);
       }
     } catch (err) {
-      // Local fallback for dev testing
+      if (cleanEmail !== 'admin@smartfit.com') {
+        setLoginError(`Access Denied: Account '${cleanEmail}' does not have administrative privileges.`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Local fallback for admin@smartfit.com dev testing
       const adminUser = {
         fullName: 'System Administrator',
         email: cleanEmail,

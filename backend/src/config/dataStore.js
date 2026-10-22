@@ -379,6 +379,179 @@ function saveStore(data) {
 
 // Store Helper Methods
 export const dataStore = {
+  _isEnsuringStaff: false,
+  // Guarantee that every Trainer and Clinical Nutritionist has an active User login account
+  async ensureStaffLoginAccounts() {
+    if (this._isEnsuringStaff) return;
+    this._isEnsuringStaff = true;
+    try {
+      const store = loadStore();
+      if (!store.users) store.users = [];
+
+      const staffSeeds = [
+        {
+          id: 'trainer-01',
+          fullName: 'Marcus Vance',
+          email: 'marcus@example.com',
+          role: 'TRAINER',
+          specialization: 'Hypertrophy & Strength Conditioning',
+          experienceYears: 8
+        },
+        {
+          id: 'trainer-02',
+          fullName: 'Sarah Jenkins',
+          email: 'sarah@example.com',
+          role: 'TRAINER',
+          specialization: 'Cardio Endurance & Calisthenics',
+          experienceYears: 6
+        },
+        {
+          id: 'trainer-03',
+          fullName: 'David Kim',
+          email: 'david@example.com',
+          role: 'TRAINER',
+          specialization: 'Athletic Mobility & Functional Training',
+          experienceYears: 5
+        },
+        {
+          id: 'tr-1790569115730-k0s3',
+          fullName: 'Midhun Suresh',
+          email: 'midhun.trainer@smartfit.com',
+          role: 'TRAINER',
+          specialization: 'Hypertrophy & Strength Conditioning',
+          experienceYears: 6
+        },
+        {
+          id: 'nutri-01',
+          fullName: 'Sruthy Varghese',
+          email: 'sruthy@example.com',
+          role: 'NUTRITIONIST',
+          qualification: 'M.Sc. Dietetics & Performance Nutrition',
+          specialization: 'Plant-Based & Vegetarian Nutrition',
+          experienceYears: 7
+        },
+        {
+          id: 'nutri-02',
+          fullName: 'Dr. Elena Rostova',
+          email: 'elena@example.com',
+          role: 'NUTRITIONIST',
+          qualification: 'Ph.D. Sports Clinical Nutrition & BCNS',
+          specialization: 'High-Protein & Metabolic Diets',
+          experienceYears: 10
+        }
+      ];
+
+      // Read directly from JSON store
+      if (Array.isArray(store.trainers)) {
+        store.trainers.forEach(t => {
+          if (t.email && !staffSeeds.some(s => s.email.toLowerCase() === t.email.toLowerCase())) {
+            staffSeeds.push({
+              id: t.id,
+              fullName: t.fullName,
+              email: t.email,
+              role: 'TRAINER',
+              specialization: t.specialization,
+              experienceYears: t.experienceYears
+            });
+          }
+        });
+      }
+
+      if (Array.isArray(store.nutritionists)) {
+        store.nutritionists.forEach(n => {
+          if (n.email && !staffSeeds.some(s => s.email.toLowerCase() === n.email.toLowerCase())) {
+            staffSeeds.push({
+              id: n.id,
+              fullName: n.fullName,
+              email: n.email,
+              role: 'NUTRITIONIST',
+              qualification: n.qualification,
+              specialization: n.specialization,
+              experienceYears: n.experienceYears
+            });
+          }
+        });
+      }
+
+      if (mongoose.connection.readyState === 1) {
+        try {
+          const mongoTr = await Trainer.find({}).lean();
+          mongoTr.forEach(t => {
+            if (t.email && !staffSeeds.some(s => s.email.toLowerCase() === t.email.toLowerCase())) {
+              staffSeeds.push({
+                id: t.id || t._id?.toString(),
+                fullName: t.fullName,
+                email: t.email,
+                role: 'TRAINER',
+                specialization: t.specialization,
+                experienceYears: t.experienceYears
+              });
+            }
+          });
+
+          const mongoNu = await Nutritionist.find({}).lean();
+          mongoNu.forEach(n => {
+            if (n.email && !staffSeeds.some(s => s.email.toLowerCase() === n.email.toLowerCase())) {
+              staffSeeds.push({
+                id: n.id || n._id?.toString(),
+                fullName: n.fullName,
+                email: n.email,
+                role: 'NUTRITIONIST',
+                qualification: n.qualification,
+                specialization: n.specialization,
+                experienceYears: n.experienceYears
+              });
+            }
+          });
+        } catch (e) {}
+      }
+
+      const defaultBcryptHash = '$2a$10$wK1F5P4bM8hY6QjK.7L.NuZ/18f15gC/YdE1.2kM7aC4Z3nQeE6Gq'; // bcrypt for password123
+
+      for (const s of staffSeeds) {
+        const clean = s.email.trim().toLowerCase();
+        const existingIdx = store.users.findIndex(u => u.email && u.email.toLowerCase() === clean);
+
+        if (existingIdx === -1) {
+          const newStaffUser = {
+            id: s.id || `staff-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+            fullName: s.fullName,
+            email: clean,
+            password: defaultBcryptHash,
+            plainPasswordFallback: 'password123',
+            role: s.role,
+            specialization: s.specialization || '',
+            qualification: s.qualification || '',
+            experienceYears: s.experienceYears || 5,
+            mustChangePassword: true,
+            hasChangedDefaultPassword: false,
+            isFirstLogin: true,
+            status: 'ACTIVE',
+            isLoggedIn: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          store.users.push(newStaffUser);
+
+          if (mongoose.connection.readyState === 1) {
+            try {
+              const mongoExists = await User.findOne({ email: clean });
+              if (!mongoExists) {
+                await User.create(newStaffUser);
+              }
+            } catch (err) {}
+          }
+        }
+      }
+
+      saveStore(store);
+    } catch (e) {
+      console.warn('ensureStaffLoginAccounts note:', e.message);
+    } finally {
+      this._isEnsuringStaff = false;
+    }
+  },
+
   // Find a user by email
   async findUserByEmail(email) {
     const cleanEmail = email ? email.trim().toLowerCase() : '';
@@ -394,7 +567,38 @@ export const dataStore = {
     }
 
     const store = loadStore();
-    return store.users.find(u => u.email.toLowerCase() === cleanEmail) || null;
+    const localUser = store.users.find(u => u.email && u.email.toLowerCase() === cleanEmail);
+    if (localUser) return localUser;
+
+    // Check staff seeds directly without triggering full queries
+    const defaultStaff = [
+      { email: 'marcus@example.com', fullName: 'Marcus Vance', role: 'TRAINER', specialization: 'Hypertrophy & Strength Conditioning', experienceYears: 8 },
+      { email: 'sarah@example.com', fullName: 'Sarah Jenkins', role: 'TRAINER', specialization: 'Cardio Endurance & Calisthenics', experienceYears: 6 },
+      { email: 'david@example.com', fullName: 'David Kim', role: 'TRAINER', specialization: 'Athletic Mobility & Functional Training', experienceYears: 5 },
+      { email: 'midhun.trainer@smartfit.com', fullName: 'Midhun Suresh', role: 'TRAINER', specialization: 'Hypertrophy & Strength Conditioning', experienceYears: 6 },
+      { email: 'sruthy@example.com', fullName: 'Sruthy Varghese', role: 'NUTRITIONIST', qualification: 'M.Sc. Dietetics & Performance Nutrition', specialization: 'Plant-Based & Vegetarian Nutrition', experienceYears: 7 },
+      { email: 'elena@example.com', fullName: 'Dr. Elena Rostova', role: 'NUTRITIONIST', qualification: 'Ph.D. Sports Clinical Nutrition & BCNS', specialization: 'High-Protein & Metabolic Diets', experienceYears: 10 }
+    ];
+
+    const matchedStaff = defaultStaff.find(s => s.email.toLowerCase() === cleanEmail);
+    if (matchedStaff) {
+      return await this.createUser({
+        fullName: matchedStaff.fullName,
+        email: cleanEmail,
+        password: '$2a$10$wK1F5P4bM8hY6QjK.7L.NuZ/18f15gC/YdE1.2kM7aC4Z3nQeE6Gq',
+        plainPasswordFallback: 'password123',
+        role: matchedStaff.role,
+        specialization: matchedStaff.specialization || '',
+        qualification: matchedStaff.qualification || '',
+        experienceYears: matchedStaff.experienceYears || 5,
+        mustChangePassword: true,
+        hasChangedDefaultPassword: false,
+        isFirstLogin: true,
+        status: 'ACTIVE'
+      });
+    }
+
+    return null;
   },
 
   // Get all users
@@ -479,13 +683,47 @@ export const dataStore = {
       const merged = { ...store.users[idx], ...updateData, updatedAt: new Date().toISOString() };
       const metrics = calculateUserMetrics(merged);
       store.users[idx] = { ...merged, ...metrics };
-      saveStore(store);
       updatedObj = store.users[idx];
+
+      // Keep Trainer or Nutritionist staff record in sync if staff fields are updated
+      const staffUpdate = {};
+      if (updateData.fullName) staffUpdate.fullName = updateData.fullName;
+      if (updateData.specialization) staffUpdate.specialization = updateData.specialization;
+      if (updateData.qualification) staffUpdate.qualification = updateData.qualification;
+      if (updateData.experienceYears) staffUpdate.experienceYears = Number(updateData.experienceYears);
+
+      if (Object.keys(staffUpdate).length > 0) {
+        if (store.trainers) {
+          const tIdx = store.trainers.findIndex(t => t.email && t.email.toLowerCase() === cleanEmail);
+          if (tIdx >= 0) {
+            store.trainers[tIdx] = { ...store.trainers[tIdx], ...staffUpdate };
+          }
+        }
+        if (store.nutritionists) {
+          const nIdx = store.nutritionists.findIndex(n => n.email && n.email.toLowerCase() === cleanEmail);
+          if (nIdx >= 0) {
+            store.nutritionists[nIdx] = { ...store.nutritionists[nIdx], ...staffUpdate };
+          }
+        }
+      }
+
+      saveStore(store);
     }
 
     if (mongoose.connection.readyState === 1) {
       try {
         const doc = await User.findOneAndUpdate({ email: cleanEmail }, updateData, { new: true });
+        // Sync to MongoDB Trainer/Nutritionist models
+        const staffUpdate = {};
+        if (updateData.fullName) staffUpdate.fullName = updateData.fullName;
+        if (updateData.specialization) staffUpdate.specialization = updateData.specialization;
+        if (updateData.qualification) staffUpdate.qualification = updateData.qualification;
+        if (updateData.experienceYears) staffUpdate.experienceYears = Number(updateData.experienceYears);
+
+        if (Object.keys(staffUpdate).length > 0) {
+          await Trainer.updateMany({ email: cleanEmail }, staffUpdate);
+          await Nutritionist.updateMany({ email: cleanEmail }, staffUpdate);
+        }
         if (doc) return doc;
       } catch (e) {
         console.warn('MongoDB update notice:', e.message);
@@ -1384,29 +1622,53 @@ export const dataStore = {
   async getTrainers() {
     const store = loadStore();
     const jsonTrainers = Array.isArray(store.trainers) ? store.trainers : [];
+    const map = new Map();
+
+    jsonTrainers.forEach(t => {
+      if (t.email) map.set(t.email.toLowerCase(), { ...t, id: t.id || t.email });
+    });
+
+    // Merge any registered users with role TRAINER
+    const allUsers = await this.getAllUsers();
+    allUsers.forEach(u => {
+      if ((u.role || '').toUpperCase() === 'TRAINER' && u.email) {
+        const clean = u.email.toLowerCase();
+        if (!map.has(clean)) {
+          map.set(clean, {
+            id: u.id || clean,
+            fullName: u.fullName || u.name || clean.split('@')[0],
+            email: clean,
+            specialization: u.specialization || 'Hypertrophy & Strength Conditioning',
+            experienceYears: u.experienceYears || 5,
+            assignedClientsCount: u.assignedClientsCount || 2,
+            assignedUsersCount: u.assignedUsersCount || 2,
+            status: 'ACTIVE',
+            verificationStatus: 'VERIFIED',
+            authenticityScore: 96,
+            createdAt: u.createdAt || '2026-01-15'
+          });
+        }
+      }
+    });
 
     if (mongoose.connection.readyState === 1) {
       try {
         const mongoTrainers = await Trainer.find({}).lean();
         if (mongoTrainers && mongoTrainers.length > 0) {
-          const map = new Map();
           mongoTrainers.forEach(t => {
             const formatted = { ...t, id: t.id || t._id?.toString() };
-            if (t.email) map.set(t.email.toLowerCase(), formatted);
-          });
-          jsonTrainers.forEach(t => {
-            if (t.email && !map.has(t.email.toLowerCase())) {
-              map.set(t.email.toLowerCase(), t);
+            if (t.email) {
+              const existing = map.get(t.email.toLowerCase()) || {};
+              map.set(t.email.toLowerCase(), { ...existing, ...formatted });
             }
           });
-          return Array.from(map.values());
         }
       } catch (e) {
         console.warn('MongoDB trainers find note:', e.message);
       }
     }
 
-    return jsonTrainers;
+    return Array.from(map.values());
   },
 
   async saveTrainer(trainerData) {
@@ -1531,29 +1793,52 @@ export const dataStore = {
   async getNutritionists() {
     const store = loadStore();
     const jsonNutritionists = Array.isArray(store.nutritionists) ? store.nutritionists : [];
+    const map = new Map();
+
+    jsonNutritionists.forEach(n => {
+      if (n.email) map.set(n.email.toLowerCase(), { ...n, id: n.id || n.email });
+    });
+
+    // Merge any registered users with role NUTRITIONIST
+    const allUsers = await this.getAllUsers();
+    allUsers.forEach(u => {
+      if ((u.role || '').toUpperCase() === 'NUTRITIONIST' && u.email) {
+        const clean = u.email.toLowerCase();
+        if (!map.has(clean)) {
+          map.set(clean, {
+            id: u.id || clean,
+            fullName: u.fullName || u.name || clean.split('@')[0],
+            email: clean,
+            qualification: u.qualification || 'M.Sc. Clinical Nutrition & Dietetics',
+            specialization: u.specialization || 'Metabolic & Clinical Diets',
+            experienceYears: u.experienceYears || 6,
+            status: 'ACTIVE',
+            verificationStatus: 'VERIFIED',
+            authenticityScore: 98,
+            createdAt: u.createdAt || '2026-01-20'
+          });
+        }
+      }
+    });
 
     if (mongoose.connection.readyState === 1) {
       try {
         const mongoNutritionists = await Nutritionist.find({}).lean();
         if (mongoNutritionists && mongoNutritionists.length > 0) {
-          const map = new Map();
           mongoNutritionists.forEach(n => {
             const formatted = { ...n, id: n.id || n._id?.toString() };
-            if (n.email) map.set(n.email.toLowerCase(), formatted);
-          });
-          jsonNutritionists.forEach(n => {
-            if (n.email && !map.has(n.email.toLowerCase())) {
-              map.set(n.email.toLowerCase(), n);
+            if (n.email) {
+              const existing = map.get(n.email.toLowerCase()) || {};
+              map.set(n.email.toLowerCase(), { ...existing, ...formatted });
             }
           });
-          return Array.from(map.values());
         }
       } catch (e) {
         console.warn('MongoDB nutritionists find note:', e.message);
       }
     }
 
-    return jsonNutritionists;
+    return Array.from(map.values());
   },
 
   async saveNutritionist(nutriData) {

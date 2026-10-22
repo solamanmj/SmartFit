@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoadingSpinner from './components/LoadingSpinner';
@@ -39,15 +39,27 @@ function App() {
               <Route 
                 path="/trainer-dashboard" 
                 element={
-                  <ProtectedRoute allowedRoles={['TRAINER', 'ADMIN']}>
+                  <ProtectedRoute allowedRoles={['TRAINER', 'ADMIN', 'USER']}>
                     <TrainerDashboard />
                   </ProtectedRoute>
                 } 
               />
               <Route 
+                path="/nutritionist" 
+                element={<Navigate to="/nutritionist-dashboard" replace />} 
+              />
+              <Route 
                 path="/nutritionist-dashboard" 
                 element={
-                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN']}>
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
+                    <NutritionistDashboard />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/nutritionist/*" 
+                element={
+                  <ProtectedRoute allowedRoles={['NUTRITIONIST', 'ADMIN', 'USER']}>
                     <NutritionistDashboard />
                   </ProtectedRoute>
                 } 

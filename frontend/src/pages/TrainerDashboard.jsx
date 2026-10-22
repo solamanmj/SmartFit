@@ -274,9 +274,24 @@ export default function TrainerDashboard() {
       setPendingPlans(plansList);
       if (plansList.length > 0) setSelectedPlan(plansList[0]);
     }
-    if (usersList && usersList.length > 0) {
-      setAssignedUsers(usersList);
-      selectClient(usersList[0]);
+    const STALE_LEGACY_ACCOUNTS = [
+      'justin@gmail.com', 'denis@gmail.com', 'dennis@gmail.com',
+      'abin@gmail.com', 'deric@gmail.com', 'aby@example.com',
+      'alex@example.com', 'johndoe@example.com'
+    ];
+    const validUsers = (Array.isArray(usersList) ? usersList : [])
+      .filter(u => !STALE_LEGACY_ACCOUNTS.includes((u.email || '').toLowerCase()));
+    setAssignedUsers(validUsers);
+    if (validUsers.length > 0) {
+      const stillExists = selectedUser && validUsers.find(u => u.email.toLowerCase() === selectedUser.email.toLowerCase());
+      if (stillExists) {
+        setSelectedUser(stillExists);
+      } else {
+        selectClient(validUsers[0]);
+      }
+    } else {
+      setSelectedUser(null);
+      setSelectedUserDetail(null);
     }
     setLoading(false);
   };
@@ -1498,7 +1513,7 @@ export default function TrainerDashboard() {
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {(selectedPlan?.exercises || [
-                        { exerciseId: 'ex-squat-barbell', exerciseName: 'Barbell Back Squat', targetMuscle: 'Quadriceps & Glutes', sets: 4, reps: '10', restSeconds: 90, intensityRpe: 8.0, recommendedAngle: 'side', confidence: 0.93 },
+                        { exerciseId: 'ex-leg-press-45', exerciseName: '45-Degree Leg Press', targetMuscle: 'Quadriceps & Glutes', sets: 4, reps: '10', restSeconds: 90, intensityRpe: 8.0, recommendedAngle: 'side', confidence: 0.93 },
                         { exerciseId: 'ex-bench-barbell', exerciseName: 'Barbell Bench Press', targetMuscle: 'Chest & Triceps', sets: 4, reps: '10', restSeconds: 90, intensityRpe: 8.0, recommendedAngle: 'side', confidence: 0.92 },
                         { exerciseId: 'ex-pushup-standard', exerciseName: 'Standard Push-Up', targetMuscle: 'Chest & Core', sets: 3, reps: '15', restSeconds: 60, intensityRpe: 7.0, recommendedAngle: 'side', confidence: 0.90 },
                         { exerciseId: 'ex-bicep-curl', exerciseName: 'Bicep Dumbbell / Barbell Curl', targetMuscle: 'Biceps Brachii', sets: 3, reps: '12', restSeconds: 60, intensityRpe: 7.5, recommendedAngle: 'front', confidence: 0.91 },

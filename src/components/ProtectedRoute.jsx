@@ -8,8 +8,11 @@ export default function ProtectedRoute({ children, adminOnly = false, allowedRol
 
   // 1. Check if user or token is missing
   if (!user || !token) {
-    const target = adminOnly ? "/admin/login" : "/login";
-    return <Navigate to={target} state={{ from: location }} replace />;
+    const isNutri = location.pathname.includes('nutritionist') || allowedRoles?.includes('NUTRITIONIST');
+    const isTrainer = location.pathname.includes('trainer') || allowedRoles?.includes('TRAINER');
+    const target = adminOnly ? "/admin/login" : (isNutri ? "/nutritionist/login" : "/login");
+    const roleHint = isNutri ? 'NUTRITIONIST' : (isTrainer ? 'TRAINER' : (adminOnly ? 'ADMIN' : 'USER'));
+    return <Navigate to={target} state={{ from: location, role: roleHint }} replace />;
   }
 
   // 2. Strict Role Protection for Admin Portal

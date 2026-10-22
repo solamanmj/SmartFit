@@ -454,44 +454,79 @@ export const fetchNutritionistDashboardApi = async (nutritionistEmail) => {
     console.warn('Nutritionist dashboard fetch note:', err.message);
   }
   return {
-    totalAssignedUsers: 3,
-    activeUsers: 3,
-    publishedPlansCount: 2,
-    pendingReviewsCount: 1,
-    macroComplianceAverage: '91.4%'
+    totalAssignedUsers: 1,
+    activeUsers: 1,
+    publishedPlansCount: 1,
+    pendingReviewsCount: 0,
+    macroComplianceAverage: '92.4%'
   };
 };
 
-export const fetchNutritionistAssignedUsersApi = async (nutritionistEmail) => {
+const STALE_LEGACY_ACCOUNTS = [
+  'justin@gmail.com',
+  'denis@gmail.com',
+  'dennis@gmail.com',
+  'abin@gmail.com',
+  'deric@gmail.com',
+  'aby@example.com',
+  'alex@example.com',
+  'johndoe@example.com'
+];
+
+export const fetchNutritionistAssignedUsersApi = async (nutritionistEmail, filter = 'all') => {
   try {
     const token = localStorage.getItem('smartfit_token');
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
-    const res = await fetch(`${API_BASE_URL}/nutritionist/users?email=${encodeURIComponent(nutritionistEmail || '')}`, {
+    const res = await fetch(`${API_BASE_URL}/nutritionist/users?email=${encodeURIComponent(nutritionistEmail || '')}&filter=${encodeURIComponent(filter)}`, {
       headers: { ...authHeaders, 'x-user-email': nutritionistEmail || '' }
     });
     if (res.ok) {
       const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) {
+        return data.filter(u => !STALE_LEGACY_ACCOUNTS.includes((u.email || '').toLowerCase()));
+      }
     }
   } catch (err) {
     console.warn('Nutritionist users fetch note:', err.message);
   }
 
-  // Graceful fallback to client accounts in localStorage
+  // Graceful offline fallback ONLY when network fails - strictly excludes stale legacy accounts
   try {
     const stored = JSON.parse(localStorage.getItem('smartfit_accounts') || '[]');
     const cleanEmail = (nutritionistEmail || 'sruthy@example.com').toLowerCase();
-    const assigned = stored.filter(u => u.role === 'USER' && (
+    const activeStored = stored.filter(u => !STALE_LEGACY_ACCOUNTS.includes((u.email || '').toLowerCase()));
+    const assigned = activeStored.filter(u => (u.role === 'USER' || !u.role) && (
       u.assignedNutritionist?.email?.toLowerCase() === cleanEmail ||
       cleanEmail === 'admin@smartfit.com'
     ));
     if (assigned.length > 0) return assigned;
-    const allClients = stored.filter(u => u.role === 'USER');
+    const allClients = activeStored.filter(u => u.role === 'USER' || !u.role);
     if (allClients.length > 0) return allClients;
   } catch (e) {}
 
   return [];
 };
+
+export const assignClientToNutritionistApi = async (clientEmail, nutritionistEmail) => {
+  try {
+    const token = localStorage.getItem('smartfit_token');
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const res = await fetch(`${API_BASE_URL}/nutritionist/users/assign`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+        'x-user-email': nutritionistEmail || ''
+      },
+      body: JSON.stringify({ clientEmail, nutritionistEmail })
+    });
+    if (res.ok) return await res.json();
+  } catch (err) {
+    console.warn('Assign client to nutritionist note:', err.message);
+  }
+  return null;
+};
+
 
 export const fetchNutritionistUserDetailApi = async (clientEmail) => {
   try {

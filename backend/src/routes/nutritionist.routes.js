@@ -118,15 +118,16 @@ router.get('/dashboard', async (req, res) => {
     const nutritionistEmail = getAuthenticatedNutritionistEmail(req);
     const allUsers = await dataStore.getAllUsers();
 
-    let assignedUsers = allUsers.filter(u => 
-      u.role === 'USER' &&
-      u.assignedNutritionist?.email?.toLowerCase() === nutritionistEmail
+    const clientUsers = allUsers.filter(u => {
+      const r = (u.role || 'USER').toUpperCase();
+      return r === 'USER';
+    });
+
+    const directlyAssignedUsers = clientUsers.filter(u => 
+      (u.assignedNutritionist?.email || '').toLowerCase() === nutritionistEmail
     );
 
-    // If this nutritionist has no directly assigned users yet, provide all client users
-    if (assignedUsers.length === 0) {
-      assignedUsers = allUsers.filter(u => u.role === 'USER');
-    }
+    const assignedUsers = directlyAssignedUsers.length > 0 ? directlyAssignedUsers : clientUsers;
 
     const mealPlans = await dataStore.getCollection('mealPlans') || [];
     let publishedPlansCount = mealPlans.filter(p => 
@@ -142,21 +143,22 @@ router.get('/dashboard', async (req, res) => {
     ).length;
 
     const symptomLogs = await dataStore.getSymptomLogs() || [];
-    const assignedEmailsSet = new Set(assignedUsers.map(u => u.email.toLowerCase()));
+    const assignedEmailsSet = new Set(clientUsers.map(u => u.email.toLowerCase()));
     const assignedSymptoms = symptomLogs.filter(s => assignedEmailsSet.has((s.userEmail || '').toLowerCase()));
     const pendingSymptomsCount = (assignedSymptoms.length > 0 ? assignedSymptoms : symptomLogs).filter(s => !s.reviewedBySpecialist && !s.reviewedByNutritionist).length;
 
-    // Calculate unread chat messages for this nutritionist across assigned clients
+    // Calculate unread chat messages for this nutritionist across clients
     let totalUnreadChats = 0;
-    for (const client of assignedUsers) {
+    for (const client of clientUsers) {
       const count = await dataStore.getUnreadChatCount(client.email, nutritionistEmail, 'NUTRITIONIST');
       totalUnreadChats += count;
     }
 
     return res.status(200).json({
       nutritionistEmail,
-      totalAssignedUsers: assignedUsers.length,
-      activeUsers: assignedUsers.filter(u => u.isLoggedIn || (u.streakDays && u.streakDays > 0)).length || assignedUsers.length,
+      totalAssignedUsers: clientUsers.length,
+      activeUsers: clientUsers.filter(u => u.isLoggedIn || (u.streakDays && u.streakDays > 0)).length || clientUsers.length,
+      directlyAssignedCount: directlyAssignedUsers.length,
       publishedPlansCount: Math.max(publishedPlansCount, 1),
       pendingReviewsCount,
       pendingSymptomsCount,
@@ -173,17 +175,29 @@ router.get('/dashboard', async (req, res) => {
 router.get('/users', async (req, res) => {
   try {
     const nutritionistEmail = getAuthenticatedNutritionistEmail(req);
-    const { search = '', page = 1, limit = 50 } = req.query;
+    const { search = '', page = 1, limit = 50, filter = 'all' } = req.query;
     const allUsers = await dataStore.getAllUsers();
 
-    let users = allUsers.filter(u => 
-      u.role === 'USER' &&
-      u.assignedNutritionist?.email?.toLowerCase() === nutritionistEmail
-    );
+    // Client accounts are registered users (excluding ADMIN, TRAINER, NUTRITIONIST)
+    const clientUsers = allUsers.filter(u => {
+      const r = (u.role || 'USER').toUpperCase();
+      return r === 'USER';
+    });
 
-    // If this nutritionist has no directly assigned users yet, provide all client users
-    if (users.length === 0) {
-      users = allUsers.filter(u => u.role === 'USER');
+    let users = [];
+    if (filter === 'assigned') {
+      users = clientUsers.filter(u => 
+        (u.assignedNutritionist?.email || '').toLowerCase() === nutritionistEmail
+      );
+    } else {
+      // Default: show all registered users, with directly assigned users prioritized first
+      users = [...clientUsers].sort((a, b) => {
+        const aAssigned = (a.assignedNutritionist?.email || '').toLowerCase() === nutritionistEmail;
+        const bAssigned = (b.assignedNutritionist?.email || '').toLowerCase() === nutritionistEmail;
+        if (aAssigned && !bAssigned) return -1;
+        if (!aAssigned && bAssigned) return 1;
+        return (a.fullName || a.email || '').localeCompare(b.fullName || b.email || '');
+      });
     }
 
     // Search filter
@@ -197,13 +211,17 @@ router.get('/users', async (req, res) => {
       );
     }
 
-    // Attach unread chat counts and meal plan status for each client
+    // Attach unread chat counts, assignment details, and meal plan status for each client
     const enrichedUsers = await Promise.all(users.map(async (u) => {
+      const isAssignedToMe = (u.assignedNutritionist?.email || '').toLowerCase() === nutritionistEmail;
       const unreadCount = await dataStore.getUnreadChatCount(u.email, nutritionistEmail, 'NUTRITIONIST');
       const plan = await dataStore.getMealPlan(u.email);
       const isAssessed = Boolean(u.height && u.weight && u.dietaryPreference);
       return {
         ...u,
+        isAssignedToMe,
+        assignedNutritionistEmail: u.assignedNutritionist?.email || null,
+        assignedNutritionistName: u.assignedNutritionist?.name || null,
         unreadChatCount: unreadCount,
         hasUnreadMessages: unreadCount > 0,
         mealPlanStatus: plan ? plan.status : 'PUBLISHED',
@@ -218,6 +236,39 @@ router.get('/users', async (req, res) => {
     const paginated = enrichedUsers.slice((pageNum - 1) * limitNum, pageNum * limitNum);
 
     return res.status(200).json(paginated);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+});
+
+// POST /api/nutritionist/users/assign
+// Allows nutritionist to explicitly take over or assign a registered client to themselves
+router.post('/users/assign', async (req, res) => {
+  try {
+    const nutritionistEmail = getAuthenticatedNutritionistEmail(req);
+    const clientEmail = (req.body?.clientEmail || '').trim().toLowerCase();
+    if (!clientEmail) {
+      return res.status(400).json({ message: 'clientEmail is required.' });
+    }
+
+    const client = await dataStore.findUserByEmail(clientEmail);
+    if (!client) {
+      return res.status(404).json({ message: 'Client account not found.' });
+    }
+
+    const specialistUser = await dataStore.findUserByEmail(nutritionistEmail);
+    const assignedNutritionist = {
+      email: nutritionistEmail,
+      name: specialistUser?.fullName || 'Clinical Nutritionist',
+      qualification: specialistUser?.qualification || 'Registered Dietitian'
+    };
+
+    await dataStore.updateUser(client.email, { assignedNutritionist });
+    return res.status(200).json({
+      success: true,
+      message: `Client "${client.fullName || client.email}" assigned to ${assignedNutritionist.name}.`,
+      assignedNutritionist
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

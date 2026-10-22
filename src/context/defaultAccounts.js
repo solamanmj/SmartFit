@@ -1,51 +1,24 @@
 export const DEFAULT_ACCOUNTS = [
   {
-    fullName: 'Aby Thomas',
-    email: 'aby@example.com',
+    fullName: 'Anugrah P',
+    email: 'anugrah@gmail.com',
     password: 'password123',
     role: 'USER',
-    age: 27,
+    age: 23,
     gender: 'Male',
-    height: 177,
-    weight: 74,
+    height: 167,
+    weight: 60,
     activityLevel: 'Moderately Active',
     fitnessGoal: 'Muscle Building',
-    dietaryPreference: 'Standard Balanced',
+    dietaryPreference: 'High Protein',
     workoutEquipment: 'Full Gym Access',
-    medicalConditions: 'None',
-    streakDays: 12,
-    points: 1250,
+    medicalConditions: 'Lower Back Issues',
+    streakDays: 1,
+    points: 250,
     assignedTrainer: {
-      email: 'marcus@example.com',
-      name: 'Marcus Vance',
+      email: 'midhun.trainer@smartfit.com',
+      name: 'Midhun Suresh',
       specialization: 'Hypertrophy & Strength Conditioning'
-    },
-    assignedNutritionist: {
-      email: 'sruthy@example.com',
-      name: 'Sruthy Varghese',
-      qualification: 'M.Sc. Dietetics & Performance Nutrition'
-    }
-  },
-  {
-    fullName: 'Alex Morgan',
-    email: 'alex@example.com',
-    password: 'password123',
-    role: 'USER',
-    age: 26,
-    gender: 'Male',
-    height: 178,
-    weight: 75,
-    activityLevel: 'Moderately Active',
-    fitnessGoal: 'Muscle Building',
-    dietaryPreference: 'Standard Balanced',
-    workoutEquipment: 'Full Gym Access',
-    medicalConditions: 'None',
-    streakDays: 14,
-    points: 1450,
-    assignedTrainer: {
-      email: 'sarah@example.com',
-      name: 'Sarah Jenkins',
-      specialization: 'Cardio Endurance & Calisthenics'
     },
     assignedNutritionist: {
       email: 'elena@example.com',
@@ -123,6 +96,29 @@ export const DEFAULT_ACCOUNTS = [
     isFirstLogin: true
   },
   {
+    fullName: 'Midhun Suresh',
+    email: 'midhun.trainer@smartfit.com',
+    password: 'password123',
+    role: 'TRAINER',
+    age: 29,
+    gender: 'Male',
+    height: 182,
+    weight: 85,
+    activityLevel: 'Very Active',
+    fitnessGoal: 'Hypertrophy & Strength Conditioning',
+    dietaryPreference: 'High Protein',
+    workoutEquipment: 'Full Gym Access',
+    medicalConditions: 'None',
+    specialization: 'Hypertrophy & Strength Conditioning',
+    experienceYears: 6,
+    assignedUsersCount: 0,
+    streakDays: 15,
+    points: 1500,
+    mustChangePassword: true,
+    hasChangedDefaultPassword: false,
+    isFirstLogin: true
+  },
+  {
     fullName: 'Sruthy Varghese',
     email: 'sruthy@example.com',
     password: 'password123',
@@ -140,7 +136,10 @@ export const DEFAULT_ACCOUNTS = [
     specialization: 'Plant-Based & Vegetarian Nutrition',
     experienceYears: 7,
     streakDays: 38,
-    points: 3100
+    points: 3100,
+    mustChangePassword: true,
+    hasChangedDefaultPassword: false,
+    isFirstLogin: true
   },
   {
     fullName: 'Dr. Elena Rostova',
@@ -160,7 +159,10 @@ export const DEFAULT_ACCOUNTS = [
     specialization: 'High-Protein & Metabolic Diets',
     experienceYears: 10,
     streakDays: 52,
-    points: 4200
+    points: 4200,
+    mustChangePassword: true,
+    hasChangedDefaultPassword: false,
+    isFirstLogin: true
   },
   {
     fullName: 'System Administrator',

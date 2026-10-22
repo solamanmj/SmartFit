@@ -4,17 +4,14 @@ import AdminNavbar from '../../components/admin/AdminNavbar';
 import SearchBar from '../../components/admin/SearchBar';
 import { 
   Users, Trash2, Eye, ShieldCheck, CheckCircle2, 
-  RefreshCw, AlertTriangle, X, Sparkles, Zap, 
-  Award, HeartHandshake, Check, ChevronRight
+  RefreshCw, AlertTriangle, X, Award, HeartHandshake 
 } from 'lucide-react';
 import { 
   fetchAdminUsersApi, 
   deleteAdminUserApi, 
   fetchAdminTrainersApi, 
   fetchAdminNutritionistsApi, 
-  autoAssignCareTeamsApi, 
-  assignCareTeamApi,
-  fetchMatchCareTeamApi 
+  assignCareTeamApi 
 } from '../../services/adminApi';
 
 export default function AdminUsers() {
@@ -22,12 +19,10 @@ export default function AdminUsers() {
   const [trainersList, setTrainersList] = useState([]);
   const [nutritionistsList, setNutritionistsList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [autoAssigning, setAutoAssigning] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('ALL');
   const [goalFilter, setGoalFilter] = useState('ALL');
   const [selectedUser, setSelectedUser] = useState(null);
-  const [userRecommendation, setUserRecommendation] = useState(null);
   const [userToDelete, setUserToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [assignSuccess, setAssignSuccess] = useState('');
@@ -54,57 +49,6 @@ export default function AdminUsers() {
   useEffect(() => {
     loadAllData();
   }, []);
-
-  // When a user is selected in the modal, fetch intelligent match recommendation
-  useEffect(() => {
-    if (selectedUser && selectedUser.email) {
-      fetchMatchCareTeamApi(selectedUser.email)
-        .then(data => {
-          if (data && data.recommendation) {
-            setUserRecommendation(data.recommendation);
-          }
-        })
-        .catch(() => {});
-    } else {
-      setUserRecommendation(null);
-    }
-  }, [selectedUser]);
-
-  // Batch Auto-Assign for All Registered Users based on Goals & Preferences
-  const handleBatchAutoAssign = async () => {
-    if (!window.confirm('Run Smart Care Team Matching for all registered clients? This pairs each user with the best-fitting Trainer & Nutritionist based on fitness goals and dietary preferences.')) {
-      return;
-    }
-
-    setAutoAssigning(true);
-    try {
-      const res = await autoAssignCareTeamsApi();
-      setAssignSuccess(res.message || 'Successfully matched and assigned care teams for all registered clients.');
-      await loadAllData();
-      setTimeout(() => setAssignSuccess(''), 6000);
-    } catch (err) {
-      alert(`Auto-assignment note: ${err.message}`);
-    } finally {
-      setAutoAssigning(false);
-    }
-  };
-
-  // Single-User Smart Auto-Assign
-  const handleSingleUserAutoAssign = async (userEmail, userName) => {
-    try {
-      const res = await autoAssignCareTeamsApi(userEmail);
-      if (res && res.user) {
-        setUsersList(prev => prev.map(u => u.email === userEmail ? res.user : u));
-        if (selectedUser && selectedUser.email === userEmail) {
-          setSelectedUser(res.user);
-        }
-      }
-      setAssignSuccess(res.message || `Specialized Care Team assigned for ${userName || userEmail}.`);
-      setTimeout(() => setAssignSuccess(''), 5000);
-    } catch (err) {
-      alert(`Smart match error: ${err.message}`);
-    }
-  };
 
   // Manual Trainer Reassignment
   const handleAssignTrainer = async (userEmail, trainerEmail, trainerName, specialization) => {
@@ -159,6 +103,14 @@ export default function AdminUsers() {
     try {
       await deleteAdminUserApi(email);
       setUsersList(prev => prev.filter(u => u.email.toLowerCase() !== email.toLowerCase()));
+
+      // Purge from browser localStorage accounts to prevent stale/resurrected state
+      try {
+        const stored = JSON.parse(localStorage.getItem('smartfit_accounts') || '[]');
+        const next = stored.filter(u => (u.email || '').toLowerCase() !== email.toLowerCase());
+        localStorage.setItem('smartfit_accounts', JSON.stringify(next));
+      } catch (e) {}
+
       setAssignSuccess(`User account "${fullName || email}" (${email}) was permanently removed from database.`);
       setTimeout(() => setAssignSuccess(''), 5000);
       setUserToDelete(null);
@@ -197,7 +149,7 @@ export default function AdminUsers() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg-dark)' }}>
       <AdminSidebar />
-      <AdminNavbar title="User Directory & Care Team Governance" subtitle="Manage registered database users, automated AI matches, and account removals." />
+      <AdminNavbar title="User Directory & Specialist Governance" subtitle="Manage registered database users, assigned specialists, and account removals." />
 
       <main style={{ flex: 1, marginLeft: '260px', paddingTop: '98px', paddingBottom: '60px', paddingLeft: '32px', paddingRight: '32px' }}>
         <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
@@ -242,11 +194,11 @@ export default function AdminUsers() {
 
             <div className="glass-card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: 'rgba(232, 128, 157, 0.15)', color: 'var(--peach-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Sparkles size={24} />
+                <Users size={24} />
               </div>
               <div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-subtle)', fontWeight: 700, textTransform: 'uppercase' }}>Care Team Match Rate</div>
-                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--peach-light)' }}>100% Precision</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-subtle)', fontWeight: 700, textTransform: 'uppercase' }}>Registered Clients</div>
+                <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--peach-light)' }}>{usersList.filter(u => (u.role || 'USER').toUpperCase() === 'USER').length}</div>
               </div>
             </div>
           </div>
@@ -258,41 +210,15 @@ export default function AdminUsers() {
                   <Users size={24} />
                 </div>
                 <div>
-                  <h2 style={{ fontSize: '1.4rem', color: '#fff', margin: 0, fontWeight: 800 }}>Registered Users & Care Team Assignments</h2>
+                  <h2 style={{ fontSize: '1.4rem', color: '#fff', margin: 0, fontWeight: 800 }}>Registered Users & Specialist Directory</h2>
                   <p style={{ color: 'var(--text-subtle)', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
-                    Specialized Trainer & Nutritionist pairing aligned with client health goals & dietary profiles.
+                    View and manage all registered client accounts, trainers, and clinical nutritionists.
                   </p>
                 </div>
               </div>
 
               {/* Action Buttons & Filters */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                
-                {/* Master Auto-Assign Button */}
-                <button
-                  onClick={handleBatchAutoAssign}
-                  disabled={autoAssigning}
-                  style={{
-                    background: 'linear-gradient(135deg, #FF7043 0%, #E8809D 100%)',
-                    color: '#fff',
-                    border: 'none',
-                    padding: '9px 18px',
-                    borderRadius: '10px',
-                    fontSize: '0.86rem',
-                    fontWeight: 800,
-                    cursor: autoAssigning ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 15px rgba(255,112,67,0.35)',
-                    transition: 'transform 0.2s'
-                  }}
-                  title="Automatically match and assign all users with ideal Trainer & Nutritionist based on goals & diets"
-                >
-                  <Sparkles size={16} className={autoAssigning ? 'spin' : ''} />
-                  <span>{autoAssigning ? 'Matching Specialists...' : 'Auto-Assign Care Teams'}</span>
-                </button>
-
                 <select
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
@@ -359,14 +285,13 @@ export default function AdminUsers() {
                     <th style={{ padding: '14px 16px' }}>Assigned Fitness Trainer</th>
                     <th style={{ padding: '14px 16px' }}>Assigned Clinical Nutritionist</th>
                     <th style={{ padding: '14px 16px' }}>Role</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'center' }}>Care Team Match</th>
                     <th style={{ padding: '14px 16px', textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-subtle)' }}>
+                      <td colSpan={6} style={{ textAlign: 'center', padding: '36px', color: 'var(--text-subtle)' }}>
                         {loading ? 'Fetching registered users...' : 'No users found matching criteria.'}
                       </td>
                     </tr>
@@ -401,6 +326,21 @@ export default function AdminUsers() {
                               <div>
                                 <div style={{ fontWeight: 700, color: '#fff' }}>{u.fullName || u.name || 'SmartFit User'}</div>
                                 <div style={{ color: '#38BDF8', fontSize: '0.78rem' }}>{u.email}</div>
+                                {(u.role === 'TRAINER' || u.role === 'NUTRITIONIST') && (
+                                  <div style={{ marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{
+                                      fontSize: '0.7rem',
+                                      background: u.role === 'TRAINER' ? 'rgba(255, 112, 67, 0.15)' : 'rgba(52, 211, 153, 0.15)',
+                                      color: u.role === 'TRAINER' ? '#FF7043' : '#34D399',
+                                      border: `1px solid ${u.role === 'TRAINER' ? 'rgba(255, 112, 67, 0.3)' : 'rgba(52, 211, 153, 0.3)'}`,
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      fontFamily: 'monospace'
+                                    }}>
+                                      Initial: password123
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </td>
@@ -515,35 +455,6 @@ export default function AdminUsers() {
                             </span>
                           </td>
 
-                          {/* Care Team Smart Match Pill */}
-                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
-                            {isClient ? (
-                              <button
-                                onClick={() => handleSingleUserAutoAssign(u.email, u.fullName)}
-                                style={{
-                                  background: 'linear-gradient(135deg, rgba(74,222,128,0.15), rgba(56,189,248,0.15))',
-                                  border: '1px solid #4ADE80',
-                                  color: '#4ADE80',
-                                  padding: '5px 10px',
-                                  borderRadius: '20px',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 800,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '4px',
-                                  transition: 'all 0.2s'
-                                }}
-                                title="Click to calculate & apply best-matched Care Team for this client"
-                              >
-                                <Zap size={12} style={{ color: '#FACC15' }} />
-                                <span>{u.assignedTrainer?.matchScore ? `${u.assignedTrainer.matchScore}% Match` : 'Smart Match'}</span>
-                              </button>
-                            ) : (
-                              <span style={{ color: 'var(--text-subtle)', fontSize: '0.75rem' }}>—</span>
-                            )}
-                          </td>
-
                           {/* Actions */}
                           <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                             <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center' }}>
@@ -562,7 +473,7 @@ export default function AdminUsers() {
                                   fontSize: '0.78rem',
                                   transition: 'all 0.2s'
                                 }}
-                                title="Inspect User Profile & Care Team Rationale"
+                                title="Inspect User Profile & Specialist Assignment"
                               >
                                 <Eye size={13} />
                                 <span>Details</span>
@@ -616,7 +527,7 @@ export default function AdminUsers() {
           </div>
 
           {/* ========================================================================= */}
-          {/* USER DETAILS & CARE TEAM SPECIALIZATION MATCH MODAL */}
+          {/* USER DETAILS & SPECIALIST ASSIGNMENT MODAL */}
           {/* ========================================================================= */}
           {selectedUser && (
             <div style={{
@@ -627,9 +538,9 @@ export default function AdminUsers() {
               <div className="glass-card" style={{ padding: '32px', maxWidth: '640px', width: '100%', background: '#1d0718', border: '1px solid var(--peach-primary)', borderRadius: '16px', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <Sparkles size={24} style={{ color: '#FF7043' }} />
+                    <Users size={24} style={{ color: '#FF7043' }} />
                     <h3 style={{ fontSize: '1.4rem', color: '#fff', margin: 0, fontWeight: 800 }}>
-                      Care Team Governance & Match Alignment
+                      User Profile & Specialist Assignment
                     </h3>
                   </div>
                   <button onClick={() => setSelectedUser(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
@@ -646,44 +557,6 @@ export default function AdminUsers() {
                   <div><strong style={{ color: '#fff' }}>Equipment:</strong> {selectedUser.workoutEquipment || 'Standard Access'}</div>
                   <div><strong style={{ color: '#fff' }}>Biometrics:</strong> {selectedUser.age || 26} yrs • {selectedUser.weight || 75} kg (BMI {selectedUser.bmi || 24})</div>
                 </div>
-
-                {/* AI Specialization Match Analysis Card */}
-                {userRecommendation && (
-                  <div style={{ background: 'linear-gradient(135deg, rgba(74,222,128,0.1), rgba(56,189,248,0.1))', border: '1px solid rgba(74,222,128,0.4)', borderRadius: '12px', padding: '16px', marginBottom: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#4ADE80', fontWeight: 800, fontSize: '0.88rem' }}>
-                        <Zap size={16} />
-                        <span>Specialization Match Engine Analysis</span>
-                      </div>
-                      <button
-                        onClick={() => handleSingleUserAutoAssign(selectedUser.email, selectedUser.fullName)}
-                        style={{
-                          background: '#4ADE80',
-                          color: '#12030f',
-                          border: 'none',
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          fontWeight: 800,
-                          fontSize: '0.75rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        Apply Match Recommendation
-                      </button>
-                    </div>
-
-                    <div style={{ fontSize: '0.82rem', color: '#E2E8F0', lineHeight: 1.5 }}>
-                      <div style={{ marginBottom: '6px' }}>
-                        🏋️ <strong>Recommended Trainer:</strong> {userRecommendation.assignedTrainer?.name} ({userRecommendation.assignedTrainer?.specialization}) — <span style={{ color: '#4ADE80', fontWeight: 700 }}>{userRecommendation.assignedTrainer?.matchScore}% Compatibility</span>
-                        <div style={{ color: 'var(--text-subtle)', fontSize: '0.78rem', marginTop: '2px' }}>{userRecommendation.assignedTrainer?.matchRationale}</div>
-                      </div>
-                      <div>
-                        🥗 <strong>Recommended Nutritionist:</strong> {userRecommendation.assignedNutritionist?.name} ({userRecommendation.assignedNutritionist?.qualification}) — <span style={{ color: '#4ADE80', fontWeight: 700 }}>{userRecommendation.assignedNutritionist?.matchScore}% Compatibility</span>
-                        <div style={{ color: 'var(--text-subtle)', fontSize: '0.78rem', marginTop: '2px' }}>{userRecommendation.assignedNutritionist?.matchRationale}</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* Assignment Form Controls */}
                 <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -756,7 +629,7 @@ export default function AdminUsers() {
                           qualification: nutritionist.qualification
                         });
                         setUsersList(prev => prev.map(u => u.email === selectedUser.email ? { ...u, assignedTrainer: trainer, assignedNutritionist: nutritionist } : u));
-                        setAssignSuccess(`Care team updated: Coach ${trainer.name} & Dietitian ${nutritionist.name} assigned to ${selectedUser.fullName || selectedUser.email}`);
+                        setAssignSuccess(`Specialists updated: Coach ${trainer.name} & Dietitian ${nutritionist.name} assigned to ${selectedUser.fullName || selectedUser.email}`);
                         setTimeout(() => setAssignSuccess(''), 5000);
                         setSelectedUser(null);
                       } catch (err) {

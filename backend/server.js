@@ -22,8 +22,8 @@ const PORT = process.env.PORT || 8081;
 // Global Middleware
 app.use(cors({
   origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-user-email', 'x-auth-token', 'x-nutritionist-email', 'x-trainer-email']
 }));
 
 app.use(express.json());
@@ -52,6 +52,12 @@ app.use((err, req, res, next) => {
 // Start Server
 async function startServer() {
   await connectDB();
+  try {
+    const { dataStore } = await import('./src/config/dataStore.js');
+    await dataStore.ensureStaffLoginAccounts();
+  } catch (err) {
+    console.warn('Initial staff login accounts check note:', err.message);
+  }
   app.listen(PORT, () => {
     console.log(`============================================================`);
     console.log(`🚀 SmartFit AI Node.js Express Backend running on Port ${PORT}`);

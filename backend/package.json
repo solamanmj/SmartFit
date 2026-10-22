@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch-path=src/routes --watch-path=src/models --watch-path=src/config --watch-path=server.js --watch server.js"
+    "dev": "node --watch-path=src/routes --watch-path=src/models --watch-path=src/config --watch-path=server.js --watch server.js",
+    "mongo": "\"C:\\Users\\solaman\\.embedmongo\\fileSets\\502204368a43bed4f84cd1cfc5d912f718d2d1d170dbfb6212b31179622471e7\\mongod.exe\" --dbpath ./data/db --bind_ip 127.0.0.1 --port 27017"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

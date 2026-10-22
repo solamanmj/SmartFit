@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { 
@@ -11,14 +11,22 @@ import { loginUserApi } from '../services/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, registeredAccounts } = useAuth();
 
+  const searchParams = new URLSearchParams(location.search);
+  const initialRole = location.state?.role || 
+                      searchParams.get('role')?.toUpperCase() || 
+                      (location.pathname.includes('nutritionist') ? 'NUTRITIONIST' : 
+                       location.pathname.includes('trainer') ? 'TRAINER' : 
+                       location.pathname.includes('admin') ? 'ADMIN' : 'USER');
+
   // Selected Role Tab: 'USER' | 'TRAINER' | 'NUTRITIONIST' | 'ADMIN'
-  const [selectedRole, setSelectedRole] = useState('USER');
+  const [selectedRole, setSelectedRole] = useState(initialRole);
 
   // Form State
-  const [email, setEmail] = useState('aby@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState(initialRole === 'NUTRITIONIST' ? 'sruthy@example.com' : (initialRole === 'TRAINER' ? 'marcus@example.com' : (initialRole === 'ADMIN' ? 'admin@smartfit.com' : 'aby@example.com')));
+  const [password, setPassword] = useState(initialRole === 'ADMIN' ? 'AdminPass123!' : 'password123');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [submitted, setSubmitted] = useState(false);
@@ -37,7 +45,7 @@ export default function LoginPage() {
       gradient: 'linear-gradient(135deg, #FF9E7D 0%, #E8809D 100%)',
       glowShadow: '0 0 25px rgba(255, 158, 125, 0.35)',
       description: 'Access AI personalized workouts, macro meal tracking, and coach feedback.',
-      demoEmail: 'aby@example.com',
+      demoEmail: 'anugrah@gmail.com',
       demoPassword: 'password123',
       targetPath: '/dashboard'
     },
@@ -82,6 +90,19 @@ export default function LoginPage() {
     }
   };
 
+  const SPECIALIST_ACCOUNTS = {
+    TRAINER: [
+      { name: 'Marcus Vance', email: 'marcus@example.com', badge: 'Hypertrophy Coach' },
+      { name: 'Midhun Suresh', email: 'midhun.trainer@smartfit.com', badge: 'Strength Specialist' },
+      { name: 'Sarah Jenkins', email: 'sarah@example.com', badge: 'Cardio & Calisthenics' },
+      { name: 'David Kim', email: 'david@example.com', badge: 'Athletic Mobility' }
+    ],
+    NUTRITIONIST: [
+      { name: 'Dr. Elena Rostova', email: 'elena@example.com', badge: 'Ph.D. Sports Clinical' },
+      { name: 'Sruthy Varghese', email: 'sruthy@example.com', badge: 'M.Sc. Dietetics & Plant-Based' }
+    ]
+  };
+
   const currentRoleConfig = ROLE_CONFIGS[selectedRole];
 
   // Handle switching role tabs
@@ -89,14 +110,22 @@ export default function LoginPage() {
     setSelectedRole(roleKey);
     setLoginError('');
     const config = ROLE_CONFIGS[roleKey];
-    setEmail(config.demoEmail);
-    const existingAcc = (registeredAccounts || []).find(a => a.email.toLowerCase() === config.demoEmail.toLowerCase());
-    if (existingAcc && (existingAcc.hasChangedDefaultPassword || existingAcc.passwordLastChangedAt)) {
-      setPassword('');
-    } else {
-      setPassword(config.demoPassword);
+    if (config) {
+      setEmail(config.demoEmail);
+      const existingAcc = (registeredAccounts || []).find(a => a.email.toLowerCase() === config.demoEmail.toLowerCase());
+      if (existingAcc && (existingAcc.hasChangedDefaultPassword || existingAcc.passwordLastChangedAt)) {
+        setPassword('');
+      } else {
+        setPassword(config.demoPassword);
+      }
     }
   };
+
+  useEffect(() => {
+    if (initialRole && ROLE_CONFIGS[initialRole]) {
+      handleRoleSelect(initialRole);
+    }
+  }, [location.pathname, location.search, location.state]);
 
   const getRedirectPathForUser = (userObj) => {
     const r = (userObj?.role || selectedRole).toUpperCase();
@@ -136,7 +165,11 @@ export default function LoginPage() {
       }
     } catch (err) {
       console.warn('Backend API login note:', err.message);
-      const isFetchErr = (err.message || '').toLowerCase().includes('failed to fetch') || (err.message || '').toLowerCase().includes('network');
+      const isFetchErr = (err.message || '').toLowerCase().includes('failed to fetch') || 
+                         (err.message || '').toLowerCase().includes('network') ||
+                         (err.message || '').toLowerCase().includes('server connection') ||
+                         (err.message || '').toLowerCase().includes('unable to reach') ||
+                         (err.message || '').toLowerCase().includes('connection');
       if (isFetchErr) {
         const res = login(cleanEmail, password);
         if (res && res.success) {
@@ -324,7 +357,7 @@ export default function LoginPage() {
               border: `1px solid ${currentRoleConfig.accentColor}35`,
               borderRadius: '14px',
               padding: '12px 16px',
-              marginBottom: '24px'
+              marginBottom: '20px'
             }}>
               <div style={{
                 width: '38px',
@@ -348,6 +381,67 @@ export default function LoginPage() {
                 </div>
               </div>
             </div>
+
+            {/* Initial Login Credentials Guidance for Specialists */}
+            {(selectedRole === 'TRAINER' || selectedRole === 'NUTRITIONIST') && (
+              <div style={{
+                background: 'rgba(255, 158, 125, 0.08)',
+                border: '1px dashed rgba(255, 158, 125, 0.35)',
+                borderRadius: '14px',
+                padding: '14px 16px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '6px' }}>
+                  <div style={{ fontSize: '0.82rem', fontWeight: 800, color: currentRoleConfig.accentColor, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🔑 Initial Staff Login Credentials</span>
+                  </div>
+                  <span style={{ fontSize: '0.74rem', background: 'rgba(255,255,255,0.08)', padding: '3px 8px', borderRadius: '6px', color: '#FFD9CB' }}>
+                    Default Password: <strong style={{ color: '#fff' }}>password123</strong>
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.78rem', color: '#E2C9D6', margin: '0 0 10px 0', lineHeight: 1.4 }}>
+                  Enrolled specialists are provided with initial default credentials below. You can log in immediately and customize your password in dashboard settings.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {(SPECIALIST_ACCOUNTS[selectedRole] || []).map((spec) => {
+                    const isCurrent = email.toLowerCase() === spec.email.toLowerCase();
+                    return (
+                      <button
+                        key={spec.email}
+                        type="button"
+                        onClick={() => {
+                          setEmail(spec.email);
+                          setLoginError('');
+                          const acc = (registeredAccounts || []).find(a => a.email.toLowerCase() === spec.email.toLowerCase());
+                          if (acc && acc.hasChangedDefaultPassword && acc.plainPasswordFallback) {
+                            setPassword(acc.plainPasswordFallback);
+                          } else {
+                            setPassword('password123');
+                          }
+                        }}
+                        style={{
+                          background: isCurrent ? currentRoleConfig.gradient : 'rgba(255,255,255,0.06)',
+                          color: isCurrent ? '#12030F' : '#FFFFFF',
+                          border: isCurrent ? 'none' : '1px solid rgba(255,255,255,0.15)',
+                          borderRadius: '8px',
+                          padding: '6px 10px',
+                          fontSize: '0.76rem',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <span>{spec.name}</span>
+                        <span style={{ opacity: isCurrent ? 0.8 : 0.6, fontSize: '0.7rem' }}>({spec.badge})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Error Message */}
             {loginError && (

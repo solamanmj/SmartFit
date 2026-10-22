@@ -50,13 +50,9 @@ export const fetchAdminUsersApi = async () => {
     }
   } catch (err2) {}
 
-  // Fallback to database seeded users if server is still starting
+  // Fallback to active registered user if server is still starting
   return [
-    { fullName: 'Aby Thomas', email: 'aby@example.com', fitnessGoal: 'Muscle Building', dietaryPreference: 'Standard Balanced', role: 'USER', age: 27, weight: 74, height: 177, bmi: 23.6, assignedTrainer: { email: 'marcus@example.com', name: 'Marcus Vance', specialization: 'Hypertrophy & Strength Conditioning' }, assignedNutritionist: { email: 'sruthy@example.com', name: 'Sruthy Varghese', qualification: 'M.Sc. Dietetics & Performance Nutrition' } },
-    { fullName: 'Alex Morgan', email: 'alex@example.com', fitnessGoal: 'Muscle Building', dietaryPreference: 'Standard Balanced', role: 'USER', age: 26, weight: 75, height: 178, bmi: 23.7, assignedTrainer: { email: 'sarah@example.com', name: 'Sarah Jenkins', specialization: 'Cardio Endurance & Calisthenics' }, assignedNutritionist: { email: 'elena@example.com', name: 'Dr. Elena Rostova', qualification: 'Ph.D. Sports Clinical Nutrition' } },
-    { fullName: 'John Doe', email: 'johndoe@example.com', fitnessGoal: 'Muscle Building', dietaryPreference: 'Standard Balanced', role: 'USER', age: 28, weight: 78, height: 180, bmi: 24.1, assignedTrainer: { email: 'marcus@example.com', name: 'Coach Marcus Vance', specialization: 'Hypertrophy & Strength Conditioning' }, assignedNutritionist: { email: 'sruthy@example.com', name: 'Sruthy Varghese (M.Sc)', qualification: 'M.Sc. Dietetics & Performance Nutrition' } },
-    { fullName: 'deric joseph', email: 'deric@gmail.com', fitnessGoal: 'Athletic Performance', dietaryPreference: 'High Protein', role: 'USER', age: 22, weight: 88, height: 150, bmi: 39.1, assignedTrainer: { email: 'david@example.com', name: 'Coach David Kim', specialization: 'Athletic Mobility & Functional Movement' }, assignedNutritionist: { email: 'sruthy@example.com', name: 'Sruthy Varghese (M.Sc)', qualification: 'M.Sc. Dietetics & Performance Nutrition' } },
-    { fullName: 'Test Dashboard User', email: 'testuser_1790053957865@example.com', fitnessGoal: 'Muscle Building', dietaryPreference: 'Standard Balanced', role: 'USER', age: 25, weight: 75, height: 180, bmi: 23.1, assignedTrainer: { email: 'marcus@example.com', name: 'Coach Marcus Vance', specialization: 'Hypertrophy & Strength Conditioning' }, assignedNutritionist: { email: 'sruthy@example.com', name: 'Sruthy Varghese (M.Sc)', qualification: 'M.Sc. Dietetics & Performance Nutrition' } }
+    { fullName: 'Anugrah P', email: 'anugrah@gmail.com', fitnessGoal: 'Muscle Building', dietaryPreference: 'High Protein', role: 'USER', age: 23, weight: 60, height: 167, bmi: 21.5, assignedTrainer: { email: 'midhun.trainer@smartfit.com', name: 'Midhun Suresh', specialization: 'Hypertrophy & Strength Conditioning' }, assignedNutritionist: { email: 'elena@example.com', name: 'Dr. Elena Rostova', qualification: 'Ph.D. Sports Clinical Nutrition' } }
   ];
 };
 

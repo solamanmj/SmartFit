@@ -16,13 +16,14 @@ const router = express.Router();
 router.get('/dashboard', async (req, res) => {
   try {
     const allUsers = await dataStore.getAllUsers();
-    const trainers = await dataStore.getCollection('trainers');
-    const nutritionists = await dataStore.getCollection('nutritionists');
+    const trainers = await dataStore.getTrainers();
+    const nutritionists = await dataStore.getNutritionists();
     const exercises = await dataStore.getCollection('exercises');
     const foodItems = await dataStore.getCollection('foodItems');
     const workoutLogs = await dataStore.getCollection('workoutLogs');
 
-    const totalUsers = allUsers.length;
+    const clientUsers = allUsers.filter(u => (u.role || 'USER').toUpperCase() === 'USER');
+    const totalUsers = clientUsers.length;
     const activeUsers = totalUsers;
     const totalTrainers = trainers.length;
     const totalNutritionists = nutritionists.length;
@@ -33,6 +34,7 @@ router.get('/dashboard', async (req, res) => {
     return res.status(200).json({
       totalUsers,
       activeUsers,
+      totalAllAccounts: allUsers.length,
       totalTrainers,
       totalNutritionists,
       totalExercises,
@@ -41,7 +43,10 @@ router.get('/dashboard', async (req, res) => {
       nutritionRecommendationsGenerated: totalUsers > 0 ? totalUsers * 8 + 45 : 185,
       mongoDbStatus: mongoose.connection.readyState === 1 ? 'CONNECTED' : 'PERSISTENT_STORE_ACTIVE',
       fastApiStatus: 'ONLINE',
-      users: allUsers
+      users: allUsers,
+      registeredClients: clientUsers,
+      trainers,
+      nutritionists
     });
   } catch (err) {
     return res.status(500).json({ message: err.message });

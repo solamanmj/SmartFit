@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import SpecialistClientChat from '../components/SpecialistClientChat';
-import { useAuth } from '../context/AuthContext';
+import TrainerPasswordModal from '../components/TrainerPasswordModal';
+import { useAuth, DEFAULT_ACCOUNTS } from '../context/AuthContext';
 import { 
   Users, Utensils, Award, CheckCircle2, AlertCircle, Plus, Trash2, Edit3, 
   Send, Activity, Sparkles, ChevronRight, Search, Flame, Droplets, PieChart, Shield,
   MessageSquare, ShieldAlert, ShieldCheck, HeartPulse, RefreshCw, X, FileText,
   Check, ArrowRight, BookOpen, AlertTriangle, CheckSquare, Clock, Filter, Eye,
-  Calendar, Coffee, Sun, Moon, Sunrise, Sunset, Share2, UserCheck, CheckCircle
+  Calendar, Coffee, Sun, Moon, Sunrise, Sunset, Share2, UserCheck, CheckCircle,
+  KeyRound, Lock
 } from 'lucide-react';
 import { 
   fetchNutritionistDashboardApi, 
@@ -25,7 +27,8 @@ import {
   shuffleApprovedMealPlanApi,
   fetchNutritionistMealPlansApi,
   publishMealPlanToUserApi,
-  fetchNutritionistAllMealSchedulesApi
+  fetchNutritionistAllMealSchedulesApi,
+  assignClientToNutritionistApi
 } from '../services/api';
 
 // Verified Master Food Database Catalog with Macro & Micronutrient & Allergen Meta
@@ -92,9 +95,29 @@ export default function NutritionistDashboard() {
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [rosterFilter, setRosterFilter] = useState('ALL'); // 'ALL' | 'ASSIGNED'
+  const [assignSuccessMsg, setAssignSuccessMsg] = useState('');
 
   // Active View Tabs: 'mealplan' | 'plans_list' | 'clients' | 'chat' | 'assessment' | 'rotation' | 'food_db' | 'symptoms'
   const [activeTab, setActiveTab] = useState('mealplan');
+
+  // Security / Password Customization Modal State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  // Detect if clinical nutritionist is using initial default password
+  const isInitialNutritionistPassword = Boolean(
+    user && 
+    user.role === 'NUTRITIONIST' && 
+    !user.hasChangedDefaultPassword && 
+    !user.passwordLastChangedAt && 
+    (user.mustChangePassword === true || user.isFirstLogin === true || user.password === 'password123')
+  );
+
+  useEffect(() => {
+    if (isInitialNutritionistPassword) {
+      setShowPasswordModal(true);
+    }
+  }, [isInitialNutritionistPassword]);
 
   // Meal Plan Builder State with Day Selector
   const [selectedDay, setSelectedDay] = useState('Today');
@@ -162,13 +185,13 @@ export default function NutritionistDashboard() {
   });
 
   // Calculate Live Meal Plan Macros
-  const calculatedTotals = meals.reduce((acc, m) => {
-    const p = parseFloat(m.protein) || 0;
-    const c = parseFloat(m.carbs) || 0;
-    const f = parseFloat(m.fat) || 0;
-    const fib = parseFloat(m.fiber) || 0;
+  const calculatedTotals = (Array.isArray(meals) ? meals : []).reduce((acc, m) => {
+    const p = parseFloat(m?.protein) || 0;
+    const c = parseFloat(m?.carbs) || 0;
+    const f = parseFloat(m?.fat) || 0;
+    const fib = parseFloat(m?.fiber) || 0;
     return {
-      calories: acc.calories + (Number(m.calories) || 0),
+      calories: acc.calories + (Number(m?.calories) || 0),
       protein: acc.protein + p,
       carbs: acc.carbs + c,
       fat: acc.fat + f,
@@ -508,19 +531,25 @@ export default function NutritionistDashboard() {
 
   const handleMealChange = async (index, field, value) => {
     const updatedMeals = [...meals];
-    updatedMeals[index][field] = value;
+    if (!updatedMeals[index]) return;
+    updatedMeals[index] = { ...updatedMeals[index], [field]: value };
     setMeals(updatedMeals);
 
     if (field === 'title' || field === 'description') {
-      const checkRes = await verifyMealIngredientSafetyApi({
-        userEmail: selectedUser?.email,
-        foodTitle: value
-      });
+      try {
+        const checkRes = await verifyMealIngredientSafetyApi({
+          userEmail: selectedUser?.email,
+          foodTitle: value
+        });
 
-      if (!checkRes.isSafe) {
-        setSafetyViolation(`⚠️ RESTRICTION ALERT for Meal ${index + 1}: ${checkRes.violations.join(', ')}`);
-      } else {
-        setSafetyViolation('');
+        if (checkRes && !checkRes.isSafe) {
+          const vList = Array.isArray(checkRes.violations) ? checkRes.violations.join(', ') : (checkRes.violations || 'Ingredient hazard');
+          setSafetyViolation(`⚠️ RESTRICTION ALERT for Meal ${index + 1}: ${vList}`);
+        } else {
+          setSafetyViolation('');
+        }
+      } catch (e) {
+        console.warn('verifyMealIngredientSafetyApi note:', e);
       }
     }
   };
@@ -597,86 +626,97 @@ export default function NutritionistDashboard() {
     setFeedbackSuccess('');
     setSafetyViolation('');
 
-    const detail = await fetchNutritionistUserDetailApi(client.email);
-    if (detail) {
-      setSelectedUserDetail(detail);
+    const safeArray = (val) => Array.isArray(val) ? val : (val && val !== 'None' ? [val] : []);
 
-      if (detail.activeMealPlan) {
-        setPlanTitle(detail.activeMealPlan.planTitle || `Meal Plan for ${client.fullName}`);
-        setDietaryPreference(detail.activeMealPlan.dietaryPreference || client.dietaryPreference || 'Standard Balanced');
-        setPlanStatus(detail.activeMealPlan.status || 'PUBLISHED');
-        setTargetCalories(detail.activeMealPlan.targetCalories || 2400);
-        setProteinGrams(detail.activeMealPlan.proteinGrams || 150);
-        setCarbGrams(detail.activeMealPlan.carbGrams || 250);
-        setFatGrams(detail.activeMealPlan.fatGrams || 65);
-        setFiberGrams(detail.activeMealPlan.fiberGrams || 30);
-        setHydrationLiters(detail.activeMealPlan.hydrationLiters || 3.5);
-        setDietitianNotes(detail.activeMealPlan.notes || '');
-        setMeals(detail.activeMealPlan.meals && detail.activeMealPlan.meals.length > 0 ? detail.activeMealPlan.meals : getDietaryMeals(client.dietaryPreference, 2400, 150, 250, 65));
+    try {
+      const detail = await fetchNutritionistUserDetailApi(client.email);
+      if (detail) {
+        setSelectedUserDetail(detail);
+
+        if (detail.activeMealPlan) {
+          setPlanTitle(detail.activeMealPlan.planTitle || `Meal Plan for ${client.fullName}`);
+          setDietaryPreference(detail.activeMealPlan.dietaryPreference || client.dietaryPreference || 'Standard Balanced');
+          setPlanStatus(detail.activeMealPlan.status || 'PUBLISHED');
+          setTargetCalories(Number(detail.activeMealPlan.targetCalories) || 2400);
+          setProteinGrams(Number(detail.activeMealPlan.proteinGrams) || 150);
+          setCarbGrams(Number(detail.activeMealPlan.carbGrams) || 250);
+          setFatGrams(Number(detail.activeMealPlan.fatGrams) || 65);
+          setFiberGrams(Number(detail.activeMealPlan.fiberGrams) || 30);
+          setHydrationLiters(Number(detail.activeMealPlan.hydrationLiters) || 3.5);
+          setDietitianNotes(detail.activeMealPlan.notes || '');
+          const planMeals = Array.isArray(detail.activeMealPlan.meals) && detail.activeMealPlan.meals.length > 0 
+            ? detail.activeMealPlan.meals 
+            : getDietaryMeals(client.dietaryPreference, 2400, 150, 250, 65);
+          setMeals(planMeals);
+        } else {
+          generateAiStartingMealPlan(client);
+        }
       } else {
+        const w = Number(client.weight) || 75.0;
+        const h = Number(client.height) || 178.0;
+        const age = Number(client.age) || 26;
+        const isFemale = (client.gender || '').toLowerCase().includes('female');
+        const bmr = isFemale ? (10.0 * w + 6.25 * h - 5.0 * age - 161.0) : (10.0 * w + 6.25 * h - 5.0 * age + 5.0);
+        const pal = 1.55;
+        const tdee = Math.round(bmr * pal);
+        const targetCals = Number(client.targetCalories) || tdee;
+        const heightM = Math.max(h / 100.0, 0.5);
+        const bmi = Number((w / (heightM * heightM)).toFixed(1));
+        let bmiCategory = 'Normal Weight';
+        if (bmi < 18.5) bmiCategory = 'Underweight';
+        else if (bmi <= 24.9) bmiCategory = 'Normal Weight';
+        else if (bmi <= 29.9) bmiCategory = 'Overweight';
+        else bmiCategory = 'Obese';
+
+        setSelectedUserDetail({
+          user: client,
+          clinicalAssessment: {
+            anthropometrics: {
+              age,
+              gender: client.gender || 'Male',
+              heightCm: h,
+              weightKg: w,
+              bmi,
+              bmiCategory,
+              activityLevel: client.activityLevel || 'Moderately Active',
+              fitnessGoal: client.fitnessGoal || 'General Health'
+            },
+            energyExpenditure: {
+              bmr: Math.round(bmr),
+              palMultiplier: pal,
+              tdee,
+              recommendedCalories: targetCals,
+              recommendedProteinGrams: Math.round(w * 2.0),
+              recommendedCarbGrams: Math.round((targetCals * 0.45) / 4),
+              recommendedFatGrams: Math.round((targetCals * 0.25) / 9),
+              fiberTargetGrams: 30,
+              hydrationLiters: 3.5
+            },
+            dietaryCategories: {
+              dietaryPreference: client.dietaryPreference || 'Standard Balanced',
+              confirmedAllergies: safeArray(client.allergies),
+              intolerances: safeArray(client.intolerances),
+              dislikedFoods: safeArray(client.dislikedFoods),
+              culturalRestrictions: safeArray(client.culturalRestrictions),
+              clinicianAdvisedRestrictions: safeArray(client.clinicianAdvisedRestrictions),
+              verifiedFoodWarnings: safeArray(client.verifiedFoodWarnings)
+            },
+            practicalContext: {
+              foodBudget: client.foodBudget || 'Standard',
+              cookingFacilities: client.cookingFacilities || 'Full Kitchen',
+              foodAvailability: client.foodAvailability || 'Urban Supermarket',
+              scheduleConstraints: client.scheduleConstraints || 'Standard 9-5 work hours'
+            }
+          }
+        });
         generateAiStartingMealPlan(client);
       }
-    } else {
-      const w = Number(client.weight) || 75.0;
-      const h = Number(client.height) || 178.0;
-      const age = Number(client.age) || 26;
-      const isFemale = (client.gender || '').toLowerCase().includes('female');
-      const bmr = isFemale ? (10.0 * w + 6.25 * h - 5.0 * age - 161.0) : (10.0 * w + 6.25 * h - 5.0 * age + 5.0);
-      const pal = 1.55;
-      const tdee = Math.round(bmr * pal);
-      const targetCals = client.targetCalories || tdee;
-      const heightM = h / 100.0;
-      const bmi = Number((w / (heightM * heightM)).toFixed(1));
-      let bmiCategory = 'Normal Weight';
-      if (bmi < 18.5) bmiCategory = 'Underweight';
-      else if (bmi <= 24.9) bmiCategory = 'Normal Weight';
-      else if (bmi <= 29.9) bmiCategory = 'Overweight';
-      else bmiCategory = 'Obese';
-
-      setSelectedUserDetail({
-        user: client,
-        clinicalAssessment: {
-          anthropometrics: {
-            age,
-            gender: client.gender || 'Male',
-            heightCm: h,
-            weightKg: w,
-            bmi,
-            bmiCategory,
-            activityLevel: client.activityLevel || 'Moderately Active',
-            fitnessGoal: client.fitnessGoal || 'General Health'
-          },
-          energyExpenditure: {
-            bmr: Math.round(bmr),
-            palMultiplier: pal,
-            tdee,
-            recommendedCalories: targetCals,
-            recommendedProteinGrams: Math.round(w * 2.0),
-            recommendedCarbGrams: Math.round((targetCals * 0.45) / 4),
-            recommendedFatGrams: Math.round((targetCals * 0.25) / 9),
-            fiberTargetGrams: 30,
-            hydrationLiters: 3.5
-          },
-          dietaryCategories: {
-            dietaryPreference: client.dietaryPreference || 'Standard Balanced',
-            confirmedAllergies: client.allergies || [],
-            intolerances: client.intolerances || [],
-            dislikedFoods: client.dislikedFoods || [],
-            culturalRestrictions: client.culturalRestrictions || [],
-            clinicianAdvisedRestrictions: client.clinicianAdvisedRestrictions || [],
-            verifiedFoodWarnings: client.verifiedFoodWarnings || []
-          },
-          practicalContext: {
-            foodBudget: client.foodBudget || 'Standard',
-            cookingFacilities: client.cookingFacilities || 'Full Kitchen',
-            foodAvailability: client.foodAvailability || 'Urban Supermarket',
-            scheduleConstraints: client.scheduleConstraints || 'Standard 9-5 work hours'
-          }
-        }
-      });
+    } catch (err) {
+      console.warn('selectClient safe fallback note:', err);
       generateAiStartingMealPlan(client);
+    } finally {
+      setDetailLoading(false);
     }
-    setDetailLoading(false);
   };
 
   const handleSaveMealPlan = async (targetStatus = 'PUBLISHED') => {
@@ -736,59 +776,113 @@ export default function NutritionistDashboard() {
   // Load lists
   const loadNutritionistData = async () => {
     setLoading(true);
-    const nutriEmail = user?.email || 'sruthy@example.com';
-    let [dashStats, usersList] = await Promise.all([
-      fetchNutritionistDashboardApi(nutriEmail),
-      fetchNutritionistAssignedUsersApi(nutriEmail)
-    ]);
+    const nutriEmail = user?.role === 'NUTRITIONIST' ? (user?.email || 'sruthy@example.com') : 'sruthy@example.com';
+    let dashStats = null;
+    let usersList = null;
 
-    if (dashStats) setStats(dashStats);
+    const STALE_LEGACY_ACCOUNTS = [
+      'justin@gmail.com',
+      'denis@gmail.com',
+      'dennis@gmail.com',
+      'abin@gmail.com',
+      'deric@gmail.com',
+      'aby@example.com',
+      'alex@example.com',
+      'johndoe@example.com'
+    ];
 
-    // If usersList is empty from backend, fall back to local client accounts
-    if (!usersList || usersList.length === 0) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('smartfit_accounts') || '[]');
-        const cleanEmail = nutriEmail.toLowerCase();
-        let fallback = stored.filter(u => u.role === 'USER' && (
-          u.assignedNutritionist?.email?.toLowerCase() === cleanEmail ||
-          cleanEmail === 'admin@smartfit.com'
-        ));
-        if (fallback.length === 0) {
-          fallback = stored.filter(u => u.role === 'USER');
-        }
-        if (fallback.length > 0) {
-          usersList = fallback;
-        }
-      } catch (e) {}
-    }
-
-    if (usersList && usersList.length > 0) {
-      setAssignedUsers(usersList);
-      if (!selectedUser) {
-        selectClient(usersList[0]);
+    // Clean browser localStorage cache immediately to remove deleted and stale accounts
+    try {
+      const localAccs = JSON.parse(localStorage.getItem('smartfit_accounts') || '[]');
+      const sanitized = localAccs.filter(a => !STALE_LEGACY_ACCOUNTS.includes((a.email || '').toLowerCase()));
+      if (sanitized.length !== localAccs.length) {
+        localStorage.setItem('smartfit_accounts', JSON.stringify(sanitized));
       }
+    } catch (e) {}
+
+    try {
+      const results = await Promise.all([
+        fetchNutritionistDashboardApi(nutriEmail),
+        fetchNutritionistAssignedUsersApi(nutriEmail, 'all')
+      ]);
+      dashStats = results[0];
+      usersList = results[1];
+    } catch (e) {
+      console.warn('Dashboard fetch note:', e);
     }
+
+    // Live registered users from database, strictly excluding stale accounts
+    const validUsers = (Array.isArray(usersList) ? usersList : [])
+      .filter(u => !STALE_LEGACY_ACCOUNTS.includes((u.email || '').toLowerCase()));
+
+    if (dashStats) {
+      setStats({
+        ...dashStats,
+        totalAssignedUsers: validUsers.length,
+        activeUsers: validUsers.length
+      });
+    }
+
+    setAssignedUsers(validUsers);
+
+    // Keep selected client if they still exist in the updated roster; otherwise pick first or null
+    if (validUsers.length > 0) {
+      const stillExists = selectedUser && validUsers.find(u => u.email.toLowerCase() === selectedUser.email.toLowerCase());
+      if (stillExists) {
+        setSelectedUser(stillExists);
+      } else {
+        selectClient(validUsers[0]);
+      }
+    } else {
+      setSelectedUser(null);
+      setSelectedUserDetail(null);
+    }
+
     setLoading(false);
+  };
+
+  const handleAssignClientToMe = async (clientEmail) => {
+    try {
+      const nutriEmail = user?.role === 'NUTRITIONIST' ? (user?.email || 'sruthy@example.com') : 'sruthy@example.com';
+      const res = await assignClientToNutritionistApi(clientEmail, nutriEmail);
+      if (res && res.success) {
+        setAssignSuccessMsg(`Client assigned to your roster successfully.`);
+        setTimeout(() => setAssignSuccessMsg(''), 4000);
+        await loadNutritionistData();
+      }
+    } catch (err) {
+      console.warn('Assign client note:', err);
+    }
   };
 
   const loadMealPlansList = async () => {
     setPlansLoading(true);
-    const nutriEmail = user?.email || 'sruthy@example.com';
-    const list = await fetchNutritionistMealPlansApi(nutriEmail, plansFilter, plansSearch);
-    if (list) {
-      setPlansList(list);
+    try {
+      const nutriEmail = user?.role === 'NUTRITIONIST' ? (user?.email || 'sruthy@example.com') : 'sruthy@example.com';
+      const list = await fetchNutritionistMealPlansApi(nutriEmail, plansFilter, plansSearch);
+      if (Array.isArray(list)) {
+        setPlansList(list);
+      }
+    } catch (err) {
+      console.warn('Load meal plans note:', err);
+    } finally {
+      setPlansLoading(false);
     }
-    setPlansLoading(false);
   };
 
   const loadApprovedSchedules = async () => {
     setSchedulesLoading(true);
-    const nutriEmail = user?.email || 'sruthy@example.com';
-    const schedules = await fetchNutritionistAllMealSchedulesApi(nutriEmail);
-    if (schedules) {
-      setApprovedSchedules(schedules);
+    try {
+      const nutriEmail = user?.role === 'NUTRITIONIST' ? (user?.email || 'sruthy@example.com') : 'sruthy@example.com';
+      const schedules = await fetchNutritionistAllMealSchedulesApi(nutriEmail);
+      if (Array.isArray(schedules)) {
+        setApprovedSchedules(schedules);
+      }
+    } catch (err) {
+      console.warn('Load schedules note:', err);
+    } finally {
+      setSchedulesLoading(false);
     }
-    setSchedulesLoading(false);
   };
 
   const loadFoodDatabase = async () => {
@@ -813,6 +907,17 @@ export default function NutritionistDashboard() {
     loadSymptomLogs();
     loadMealPlansList();
     loadApprovedSchedules();
+
+    // Listen for live user registration / roster updates across windows and components
+    const handleRosterUpdate = () => {
+      loadNutritionistData();
+    };
+    window.addEventListener('storage', handleRosterUpdate);
+    window.addEventListener('smartfit_accounts_updated', handleRosterUpdate);
+    return () => {
+      window.removeEventListener('storage', handleRosterUpdate);
+      window.removeEventListener('smartfit_accounts_updated', handleRosterUpdate);
+    };
   }, [user]);
 
   useEffect(() => {
@@ -1000,12 +1105,28 @@ export default function NutritionistDashboard() {
     }
   };
 
-  const filteredUsers = assignedUsers.filter(u => 
-    (u.fullName && u.fullName.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (u.dietaryPreference && u.dietaryPreference.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (u.fitnessGoal && u.fitnessGoal.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  const safeUsers = Array.isArray(assignedUsers) ? assignedUsers : [];
+  const currentNutriEmail = (user?.email || 'sruthy@example.com').toLowerCase();
+
+  const filteredUsers = safeUsers.filter(u => {
+    const q = searchTerm.toLowerCase();
+    const matchesSearch = !q ||
+      (u.fullName && u.fullName.toLowerCase().includes(q)) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.dietaryPreference && u.dietaryPreference.toLowerCase().includes(q)) ||
+      (u.fitnessGoal && u.fitnessGoal.toLowerCase().includes(q));
+
+    const isDirectlyAssigned = u.isAssignedToMe || (u.assignedNutritionist?.email || '').toLowerCase() === currentNutriEmail;
+
+    if (rosterFilter === 'ASSIGNED') {
+      return matchesSearch && isDirectlyAssigned;
+    }
+    return matchesSearch;
+  });
+
+  const directlyAssignedCount = safeUsers.filter(u => 
+    u.isAssignedToMe || (u.assignedNutritionist?.email || '').toLowerCase() === currentNutriEmail
+  ).length;
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#12030F', color: '#F8FAFC' }}>
@@ -1056,9 +1177,31 @@ export default function NutritionistDashboard() {
             <h1 style={{ fontSize: '2.1rem', fontWeight: 800, margin: '0 0 6px 0', background: 'linear-gradient(135deg, #FFFFFF 20%, #FFD9CB 60%, #FF9E7D 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               Specialist Station • {user?.fullName || 'Sruthy Varghese (M.Sc)'}
             </h1>
-            <p style={{ margin: 0, fontSize: '0.86rem', color: '#E2C9D6' }}>
+            <p style={{ margin: '0 0 12px 0', fontSize: '0.86rem', color: '#E2C9D6' }}>
               Publish daily meal slots (Morning, Lunch, Evening, Dinner), AI-shuffle menus, calibrate client targets, and provide personal assistance.
             </p>
+
+            <button
+              onClick={() => setShowPasswordModal(true)}
+              style={{
+                backgroundColor: isInitialNutritionistPassword ? 'rgba(255, 112, 67, 0.2)' : 'rgba(52, 211, 153, 0.15)',
+                color: isInitialNutritionistPassword ? '#FF7043' : '#34D399',
+                border: `1px solid ${isInitialNutritionistPassword ? '#FF7043' : 'rgba(52, 211, 153, 0.4)'}`,
+                padding: '8px 16px',
+                borderRadius: '12px',
+                fontWeight: 700,
+                fontSize: '0.82rem',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: isInitialNutritionistPassword ? '0 0 15px rgba(255, 112, 67, 0.4)' : 'none'
+              }}
+            >
+              <KeyRound size={15} />
+              <span>{isInitialNutritionistPassword ? '🔐 Customize Initial Password' : '⚙️ Account & Credentials'}</span>
+            </button>
           </div>
 
           {/* Quick Metrics Cards */}
@@ -1066,32 +1209,81 @@ export default function NutritionistDashboard() {
             <div style={{ background: 'rgba(0, 0, 0, 0.45)', border: '1px solid rgba(255, 112, 67, 0.3)', padding: '12px 16px', borderRadius: '14px', textAlign: 'center', minWidth: '100px' }}>
               <div style={{ fontSize: '0.7rem', color: '#FFB8A1', fontWeight: 700, textTransform: 'uppercase' }}>Clients</div>
               <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#FF7043', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                <Users size={16} /> {assignedUsers.length || stats.totalAssignedUsers}
+                <Users size={16} /> {(Array.isArray(assignedUsers) ? assignedUsers.length : 0) || stats?.totalAssignedUsers || 0}
               </div>
             </div>
 
             <div style={{ background: 'rgba(0, 0, 0, 0.45)', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '12px 16px', borderRadius: '14px', textAlign: 'center', minWidth: '110px' }}>
               <div style={{ fontSize: '0.7rem', color: '#A7F3D0', fontWeight: 700, textTransform: 'uppercase' }}>Published</div>
               <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#34D399', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                <CheckCircle2 size={16} /> {Math.max(stats.publishedPlansCount, plansList.filter(p => p.status === 'PUBLISHED').length, 1)}
+                <CheckCircle2 size={16} /> {Math.max(stats?.publishedPlansCount || 0, (Array.isArray(plansList) ? plansList.filter(p => p.status === 'PUBLISHED').length : 0), 1)}
               </div>
             </div>
 
             <div style={{ background: 'rgba(0, 0, 0, 0.45)', border: '1px solid rgba(236, 72, 153, 0.3)', padding: '12px 16px', borderRadius: '14px', textAlign: 'center', minWidth: '110px' }}>
               <div style={{ fontSize: '0.7rem', color: '#F472B6', fontWeight: 700, textTransform: 'uppercase' }}>Schedules</div>
               <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#EC4899', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                <Calendar size={16} /> {approvedSchedules.length || 3}
+                <Calendar size={16} /> {(Array.isArray(approvedSchedules) ? approvedSchedules.length : 0) || 3}
               </div>
             </div>
 
             <div style={{ background: 'rgba(0, 0, 0, 0.45)', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '12px 16px', borderRadius: '14px', textAlign: 'center', minWidth: '100px' }}>
               <div style={{ fontSize: '0.7rem', color: '#BAE6FD', fontWeight: 700, textTransform: 'uppercase' }}>Compliance</div>
               <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#38BDF8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                <Award size={16} /> {stats.macroComplianceAverage}
+                <Award size={16} /> {stats?.macroComplianceAverage || '94%'}
               </div>
             </div>
           </div>
         </div>
+
+        {/* First-time security warning if on initial password */}
+        {isInitialNutritionistPassword && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(255, 112, 67, 0.18) 0%, rgba(225, 29, 72, 0.18) 100%)',
+            border: '1px solid #FF7043',
+            borderRadius: '16px',
+            padding: '16px 20px',
+            marginBottom: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+            boxShadow: '0 8px 25px rgba(255, 112, 67, 0.2)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <ShieldAlert size={26} style={{ color: '#FF7043', flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '0.94rem', fontWeight: 800, color: '#fff' }}>
+                  Action Required: You are signed in with the Initial Default Password (password123)
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#FFD9CB', marginTop: '2px' }}>
+                  To ensure clinical client data integrity and private consultations, please set your custom personal password.
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowPasswordModal(true)}
+              style={{
+                background: 'linear-gradient(135deg, #FF7043 0%, #E11D48 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '9px 18px',
+                fontSize: '0.85rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 15px rgba(255, 112, 67, 0.4)'
+              }}
+            >
+              <KeyRound size={15} />
+              <span>Update Password Now</span>
+            </button>
+          </div>
+        )}
 
         {/* =================================================================== */}
         {/* 2. MAIN WORKSPACE GRID: CLIENT SELECTOR + WORKSPACE PANEL */}
@@ -1106,15 +1298,92 @@ export default function NutritionistDashboard() {
             padding: '20px',
             height: 'fit-content'
           }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Users size={16} style={{ color: '#FF7043' }} />
                 <span>Client Roster</span>
               </h3>
-              <span style={{ fontSize: '0.75rem', color: '#CBD5E1', background: 'rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: '10px' }}>
-                {filteredUsers.length} Active
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={loadNutritionistData}
+                  title="Sync with live database"
+                  style={{
+                    background: 'rgba(255,255,255,0.06)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#FF9E7D',
+                    borderRadius: '8px',
+                    padding: '4px 6px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <RefreshCw size={13} className={loading ? 'spin' : ''} />
+                </button>
+                <span style={{ fontSize: '0.75rem', color: '#CBD5E1', background: 'rgba(255,255,255,0.08)', padding: '2px 8px', borderRadius: '10px' }}>
+                  {filteredUsers.length} Active
+                </span>
+              </div>
             </div>
+
+            {/* Filter Pills: All Registered vs My Assigned */}
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setRosterFilter('ALL')}
+                style={{
+                  flex: 1,
+                  padding: '5px 8px',
+                  borderRadius: '8px',
+                  border: rosterFilter === 'ALL' ? '1px solid #FF7043' : '1px solid rgba(255,255,255,0.1)',
+                  background: rosterFilter === 'ALL' ? 'rgba(255, 112, 67, 0.2)' : 'rgba(0,0,0,0.3)',
+                  color: rosterFilter === 'ALL' ? '#FF9E7D' : '#94A3B8',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                All Registered ({safeUsers.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setRosterFilter('ASSIGNED')}
+                style={{
+                  flex: 1,
+                  padding: '5px 8px',
+                  borderRadius: '8px',
+                  border: rosterFilter === 'ASSIGNED' ? '1px solid #34D399' : '1px solid rgba(255,255,255,0.1)',
+                  background: rosterFilter === 'ASSIGNED' ? 'rgba(52, 211, 153, 0.2)' : 'rgba(0,0,0,0.3)',
+                  color: rosterFilter === 'ASSIGNED' ? '#34D399' : '#94A3B8',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                My Assigned ({directlyAssignedCount})
+              </button>
+            </div>
+
+            {assignSuccessMsg && (
+              <div style={{
+                background: 'rgba(52, 211, 153, 0.15)',
+                border: '1px solid #34D399',
+                color: '#34D399',
+                padding: '6px 10px',
+                borderRadius: '8px',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                marginBottom: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <CheckCircle2 size={13} />
+                <span>{assignSuccessMsg}</span>
+              </div>
+            )}
 
             {/* Search Input */}
             <div style={{ position: 'relative', marginBottom: '14px' }}>
@@ -1138,80 +1407,156 @@ export default function NutritionistDashboard() {
 
             {/* Client List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '620px', overflowY: 'auto' }}>
-              {filteredUsers.map(client => {
-                const isSelected = selectedUser?.email === client.email;
-                return (
-                  <div
-                    key={client.email}
-                    onClick={() => selectClient(client)}
+              {filteredUsers.length === 0 ? (
+                <div style={{ padding: '24px 12px', textAlign: 'center', color: '#94A3B8', fontSize: '0.85rem' }}>
+                  <Users size={30} style={{ color: '#64748B', margin: '0 auto 8px auto', display: 'block', opacity: 0.6 }} />
+                  <div style={{ color: '#FFF', fontWeight: 700, marginBottom: '4px', fontSize: '0.88rem' }}>No Clients Found</div>
+                  <div style={{ fontSize: '0.76rem', color: '#B392A5', marginBottom: '12px' }}>
+                    {rosterFilter === 'ASSIGNED' 
+                      ? 'No registered users are directly assigned to you yet.' 
+                      : 'No registered clients match your search criteria.'}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadNutritionistData}
                     style={{
-                      padding: '12px 14px',
-                      borderRadius: '12px',
-                      background: isSelected ? 'linear-gradient(135deg, rgba(255, 112, 67, 0.25) 0%, rgba(232, 128, 157, 0.15) 100%)' : 'rgba(0,0,0,0.25)',
-                      border: isSelected ? '1.5px solid #FF7043' : '1px solid rgba(255,255,255,0.05)',
-                      textAlign: 'left',
+                      padding: '6px 14px',
+                      background: 'rgba(255, 112, 67, 0.2)',
+                      border: '1px solid #FF7043',
+                      color: '#FF9E7D',
+                      borderRadius: '8px',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '5px'
-                    }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 800, fontSize: '0.9rem', color: isSelected ? '#FF9E7D' : '#FFF' }}>
-                        {client.fullName}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        {client.unreadChatCount > 0 && (
-                          <span style={{ background: '#FF7043', color: '#FFF', fontSize: '0.68rem', fontWeight: 800, padding: '1px 6px', borderRadius: '10px' }}>
-                            💬 {client.unreadChatCount}
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <RefreshCw size={12} />
+                    <span>Sync Live Roster</span>
+                  </button>
+                </div>
+              ) : (
+                filteredUsers.map(client => {
+                  const isSelected = selectedUser?.email === client.email;
+                  const isAssignedToMe = client.isAssignedToMe || (client.assignedNutritionist?.email || '').toLowerCase() === currentNutriEmail;
+                  const hasAssignedSpecialist = Boolean(client.assignedNutritionist?.name || client.assignedNutritionist?.email);
+
+                  return (
+                    <div
+                      key={client.email}
+                      onClick={() => selectClient(client)}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: '12px',
+                        background: isSelected ? 'linear-gradient(135deg, rgba(255, 112, 67, 0.25) 0%, rgba(232, 128, 157, 0.15) 100%)' : 'rgba(0,0,0,0.25)',
+                        border: isSelected ? '1.5px solid #FF7043' : '1px solid rgba(255,255,255,0.05)',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '5px'
+                      }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 800, fontSize: '0.9rem', color: isSelected ? '#FF9E7D' : '#FFF' }}>
+                          {client.fullName || client.name || 'Registered Member'}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {client.unreadChatCount > 0 && (
+                            <span style={{ background: '#FF7043', color: '#FFF', fontSize: '0.68rem', fontWeight: 800, padding: '1px 6px', borderRadius: '10px' }}>
+                              💬 {client.unreadChatCount}
+                            </span>
+                          )}
+                          <ChevronRight size={14} style={{ color: isSelected ? '#FF7043' : '#64748B' }} />
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '0.74rem', color: '#B392A5' }}>{client.email}</span>
+                      
+                      {/* Assignment & Status Badges */}
+                      <div style={{ display: 'flex', gap: '5px', marginTop: '3px', flexWrap: 'wrap', alignItems: 'center' }}>
+                        {isAssignedToMe ? (
+                          <span style={{ fontSize: '0.66rem', background: 'rgba(52, 211, 153, 0.18)', color: '#34D399', border: '1px solid rgba(52, 211, 153, 0.4)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>
+                            🌱 Assigned to You
+                          </span>
+                        ) : hasAssignedSpecialist ? (
+                          <span style={{ fontSize: '0.66rem', background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', border: '1px solid rgba(56, 189, 248, 0.3)', padding: '1px 6px', borderRadius: '6px' }}>
+                            Assigned: {client.assignedNutritionist?.name || 'Dietitian'}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.66rem', background: 'rgba(255, 112, 67, 0.15)', color: '#FF7043', border: '1px solid rgba(255, 112, 67, 0.3)', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>
+                            ⚡ Newly Registered
                           </span>
                         )}
-                        <ChevronRight size={14} style={{ color: isSelected ? '#FF7043' : '#64748B' }} />
-                      </div>
-                    </div>
-                    <span style={{ fontSize: '0.74rem', color: '#B392A5' }}>{client.email}</span>
-                    
-                    {/* Status Tags */}
-                    <div style={{ display: 'flex', gap: '5px', marginTop: '2px', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: '0.66rem', background: 'rgba(52, 211, 153, 0.15)', color: '#34D399', padding: '1px 6px', borderRadius: '6px' }}>
-                        {client.fitnessGoal || 'Muscle Building'}
-                      </span>
-                      <span style={{ fontSize: '0.66rem', background: 'rgba(52, 211, 153, 0.15)', color: '#34D399', padding: '1px 6px', borderRadius: '6px' }}>
-                        PUBLISHED
-                      </span>
-                      {client.allergies && client.allergies.length > 0 && (
-                        <span style={{ fontSize: '0.66rem', background: 'rgba(239, 68, 68, 0.2)', color: '#FCA5A5', padding: '1px 6px', borderRadius: '6px' }}>
-                          ⚠️ {client.allergies[0]}
+
+                        <span style={{ fontSize: '0.66rem', background: 'rgba(250, 204, 21, 0.12)', color: '#FACC15', padding: '1px 6px', borderRadius: '6px' }}>
+                          {client.fitnessGoal || 'General Fitness'}
                         </span>
+                        
+                        {client.allergies && (
+                          <span style={{ fontSize: '0.66rem', background: 'rgba(239, 68, 68, 0.2)', color: '#FCA5A5', padding: '1px 6px', borderRadius: '6px' }}>
+                            ⚠️ {Array.isArray(client.allergies) ? (client.allergies[0] || 'Allergy') : String(client.allergies)}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Assign to Me button if not assigned to this nutritionist */}
+                      {!isAssignedToMe && (
+                        <div style={{ marginTop: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAssignClientToMe(client.email);
+                            }}
+                            style={{
+                              background: 'rgba(52, 211, 153, 0.12)',
+                              border: '1px solid rgba(52, 211, 153, 0.35)',
+                              color: '#34D399',
+                              borderRadius: '6px',
+                              padding: '2px 8px',
+                              fontSize: '0.68rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                          >
+                            <UserCheck size={11} />
+                            <span>Assign to My Roster</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Quick Action Navigation on Selected Client */}
+                      {isSelected && (
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setActiveTab('mealplan'); }}
+                            style={{ flex: 1, padding: '4px', fontSize: '0.7rem', background: 'rgba(255, 112, 67, 0.2)', color: '#FF7043', border: '1px solid #FF7043', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
+                            Builder
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setActiveTab('assessment'); }}
+                            style={{ flex: 1, padding: '4px', fontSize: '0.7rem', background: 'rgba(52, 211, 153, 0.2)', color: '#34D399', border: '1px solid #34D399', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
+                            Health
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setActiveTab('chat'); }}
+                            style={{ flex: 1, padding: '4px', fontSize: '0.7rem', background: 'rgba(167, 139, 250, 0.2)', color: '#C084FC', border: '1px solid #A78BFA', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
+                            Assist
+                          </button>
+                        </div>
                       )}
                     </div>
-
-                    {/* Quick Action Navigation on Selected Client */}
-                    {isSelected && (
-                      <div style={{ display: 'flex', gap: '4px', marginTop: '6px', paddingTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setActiveTab('mealplan'); }}
-                          style={{ flex: 1, padding: '4px', fontSize: '0.7rem', background: 'rgba(255, 112, 67, 0.2)', color: '#FF7043', border: '1px solid #FF7043', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
-                          Builder
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setActiveTab('assessment'); }}
-                          style={{ flex: 1, padding: '4px', fontSize: '0.7rem', background: 'rgba(52, 211, 153, 0.2)', color: '#34D399', border: '1px solid #34D399', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
-                          Health
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); setActiveTab('chat'); }}
-                          style={{ flex: 1, padding: '4px', fontSize: '0.7rem', background: 'rgba(167, 139, 250, 0.2)', color: '#C084FC', border: '1px solid #A78BFA', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}>
-                          Assist
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -1603,11 +1948,12 @@ export default function NutritionistDashboard() {
 
                 {/* Daily Specific Meal Slots List (Morning, Lunch, Evening, Dinner) */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {meals.map((meal, idx) => {
-                    const isMorning = (meal.type || '').toLowerCase().includes('morning') || (meal.type || '').toLowerCase().includes('breakfast');
-                    const isLunch = (meal.type || '').toLowerCase().includes('lunch');
-                    const isEvening = (meal.type || '').toLowerCase().includes('evening') || (meal.type || '').toLowerCase().includes('snack');
-                    const isDinner = (meal.type || '').toLowerCase().includes('dinner');
+                  {(Array.isArray(meals) ? meals : []).map((meal, idx) => {
+                    const mealType = String(meal.type || meal.slotType || meal.slotName || '').toLowerCase();
+                    const isMorning = mealType.includes('morning') || mealType.includes('breakfast');
+                    const isLunch = mealType.includes('lunch');
+                    const isEvening = mealType.includes('evening') || mealType.includes('snack');
+                    const isDinner = mealType.includes('dinner');
 
                     let slotColor = '#FF7043';
                     let SlotIcon = Sunrise;
@@ -1632,12 +1978,12 @@ export default function NutritionistDashboard() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                             <span style={{ background: `${slotColor}25`, border: `1px solid ${slotColor}`, color: slotColor, fontWeight: 900, fontSize: '0.74rem', padding: '3px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '5px' }}>
                               <SlotIcon size={13} />
-                              {meal.type || `Meal Slot ${idx + 1}`}
+                              {meal.slotName || meal.slotType || meal.type || `Meal Slot ${idx + 1}`}
                             </span>
                             <span style={{ fontSize: '0.75rem', color: '#94A3B8' }}>{meal.scheduledTime || '08:00'}</span>
                             <input 
                               type="text" 
-                              value={meal.title}
+                              value={meal.title || meal.name || ''}
                               onChange={e => handleMealChange(idx, 'title', e.target.value)}
                               style={{ background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,158,125,0.3)', color: '#FFF', fontWeight: 800, fontSize: '0.95rem', minWidth: '320px' }}
                             />
@@ -2254,17 +2600,23 @@ export default function NutritionistDashboard() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.82rem', color: '#CBD5E1' }}>
                       <div>Confirmed Allergies: 
                         <strong style={{ color: '#FCA5A5', marginLeft: '6px' }}>
-                          {(selectedUserDetail.clinicalAssessment?.dietaryCategories?.confirmedAllergies || []).join(', ') || 'None Declared'}
+                          {Array.isArray(selectedUserDetail.clinicalAssessment?.dietaryCategories?.confirmedAllergies)
+                            ? selectedUserDetail.clinicalAssessment.dietaryCategories.confirmedAllergies.join(', ')
+                            : (selectedUserDetail.clinicalAssessment?.dietaryCategories?.confirmedAllergies || 'None Declared')}
                         </strong>
                       </div>
                       <div>Intolerances: 
                         <strong style={{ color: '#FDE68A', marginLeft: '6px' }}>
-                          {(selectedUserDetail.clinicalAssessment?.dietaryCategories?.intolerances || []).join(', ') || 'None'}
+                          {Array.isArray(selectedUserDetail.clinicalAssessment?.dietaryCategories?.intolerances)
+                            ? selectedUserDetail.clinicalAssessment.dietaryCategories.intolerances.join(', ')
+                            : (selectedUserDetail.clinicalAssessment?.dietaryCategories?.intolerances || 'None')}
                         </strong>
                       </div>
                       <div>Disliked Foods: 
                         <span style={{ color: '#CBD5E1', marginLeft: '6px' }}>
-                          {(selectedUserDetail.clinicalAssessment?.dietaryCategories?.dislikedFoods || []).join(', ') || 'None'}
+                          {Array.isArray(selectedUserDetail.clinicalAssessment?.dietaryCategories?.dislikedFoods)
+                            ? selectedUserDetail.clinicalAssessment.dietaryCategories.dislikedFoods.join(', ')
+                            : (selectedUserDetail.clinicalAssessment?.dietaryCategories?.dislikedFoods || 'None')}
                         </span>
                       </div>
                     </div>
@@ -2567,6 +2919,15 @@ export default function NutritionistDashboard() {
           </div>
         </div>
       )}
+
+      {/* Clinical Nutritionist Password & Account Modal */}
+      <TrainerPasswordModal 
+        isOpen={showPasswordModal}
+        role="NUTRITIONIST"
+        isMandatory={isInitialNutritionistPassword}
+        onClose={() => setShowPasswordModal(false)}
+        onSuccess={() => setShowPasswordModal(false)}
+      />
 
       <Footer />
     </div>

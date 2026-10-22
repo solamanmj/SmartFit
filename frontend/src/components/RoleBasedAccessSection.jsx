@@ -124,7 +124,11 @@ export default function RoleBasedAccessSection() {
       }
     } catch (err) {
       // Fallback offline login check if network failed, or report actual backend message
-      const isFetchErr = (err.message || '').toLowerCase().includes('failed to fetch') || (err.message || '').toLowerCase().includes('network');
+      const isFetchErr = (err.message || '').toLowerCase().includes('failed to fetch') || 
+                         (err.message || '').toLowerCase().includes('network') ||
+                         (err.message || '').toLowerCase().includes('server connection') ||
+                         (err.message || '').toLowerCase().includes('unable to reach') ||
+                         (err.message || '').toLowerCase().includes('connection');
       if (isFetchErr) {
         const res = login(email.trim(), password);
         if (res && res.success) {

@@ -4,10 +4,10 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node dev-runner.js",
     "backend": "cd ../backend && npm run dev",
     "ml-service": "cd ../ml-service && python -m uvicorn src.main:app --port 8000 --reload",
-    "dev:all": "concurrently -k -p \"[{name}]\" -n \"Backend,ML-Engine,Frontend\" -c \"cyan,yellow,magenta\" \"npm run backend\" \"npm run ml-service\" \"npm run dev\"",
+    "dev:all": "concurrently -k -p \"[{name}]\" -n \"Backend,ML-Engine,Frontend\" -c \"cyan,yellow,magenta\" \"npm run backend\" \"npm run ml-service\" \"npx vite\"",
     "dev-all": "npm run dev:all",
     "devall": "npm run dev:all",
     "start": "npm run dev:all",

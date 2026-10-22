@@ -327,7 +327,12 @@ export default function AdminNutritionists() {
                           <td style={{ padding: '14px' }}>
                             <div style={{ fontWeight: 800, color: '#FFF', fontSize: '0.95rem' }}>{n.fullName}</div>
                             <div style={{ color: '#10B981', fontSize: '0.8rem' }}>{n.email}</div>
-                            <div style={{ color: 'var(--text-subtle)', fontSize: '0.75rem' }}>{n.qualification} • {n.experienceYears} Yrs Exp</div>
+                            <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '0.72rem', background: 'rgba(52, 211, 153, 0.15)', color: '#34D399', border: '1px solid rgba(52, 211, 153, 0.3)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                                Initial: password123
+                              </span>
+                            </div>
+                            <div style={{ color: 'var(--text-subtle)', fontSize: '0.75rem', marginTop: '3px' }}>{n.qualification} • {n.experienceYears} Yrs Exp</div>
                           </td>
 
                           {/* Specialization */}

@@ -42,17 +42,19 @@ router.get('/dashboard', async (req, res) => {
 // GET /api/trainer/users
 router.get('/users', async (req, res) => {
   try {
-    const trainerEmail = req.user?.email || req.query.email || 'marcus@example.com';
+    const trainerEmail = (req.user?.email || req.query.email || 'marcus@example.com').toLowerCase().trim();
     const allUsers = await dataStore.getAllUsers();
     
-    // Fetch clients assigned to this trainer or role USER
-    let users = allUsers.filter(u => 
-      u.assignedTrainer?.email?.toLowerCase() === trainerEmail.toLowerCase()
-    );
+    const clientUsers = allUsers.filter(u => (!u.role || u.role.toUpperCase() === 'USER'));
 
-    if (users.length === 0) {
-      users = allUsers.filter(u => u.role === 'USER');
-    }
+    // Prioritize clients assigned to this trainer first, followed by other registered users
+    const users = [...clientUsers].sort((a, b) => {
+      const aAssigned = (a.assignedTrainer?.email || '').toLowerCase() === trainerEmail;
+      const bAssigned = (b.assignedTrainer?.email || '').toLowerCase() === trainerEmail;
+      if (aAssigned && !bAssigned) return -1;
+      if (!aAssigned && bAssigned) return 1;
+      return (a.fullName || a.email || '').localeCompare(b.fullName || b.email || '');
+    });
 
     return res.status(200).json(users);
   } catch (err) {

@@ -77,6 +77,29 @@ const DEFAULT_TRAINERS = [
       licenseFormatValid: true,
       verificationNotes: 'Official Registry Match • Verified under ACE Credential Portal • CPR/AED Active.'
     }
+  },
+  { 
+    id: '4', 
+    fullName: 'Midhun Suresh', 
+    email: 'midhun.trainer@smartfit.com', 
+    specialization: 'Functional Strength & High-Intensity Conditioning', 
+    experienceYears: 7, 
+    assignedClientsCount: 15, 
+    status: 'ACTIVE',
+    certificationName: 'CSCS Certified Strength & Conditioning Specialist',
+    issuingAuthority: 'National Strength and Conditioning Association (NSCA)',
+    certificateLicenseNo: 'NSCA-CSCS-6102941',
+    issueDate: '2022-04-12',
+    expiryDate: '2026-04-12',
+    verificationStatus: 'VERIFIED',
+    authenticityScore: 97,
+    evidenceReport: {
+      accreditationCheck: true,
+      registryMatch: true,
+      cprAedClearance: true,
+      licenseFormatValid: true,
+      verificationNotes: 'Official Registry Match • Verified under NSCA International Registry • Elite Functional Coach.'
+    }
   }
 ];
 
@@ -367,7 +390,12 @@ export default function AdminTrainers() {
                           <td style={{ padding: '14px' }}>
                             <div style={{ fontWeight: 800, color: '#FFF', fontSize: '0.95rem' }}>{t.fullName}</div>
                             <div style={{ color: '#38BDF8', fontSize: '0.8rem' }}>{t.email}</div>
-                            <div style={{ color: 'var(--text-subtle)', fontSize: '0.75rem' }}>{t.experienceYears} Years Exp • {t.assignedClientsCount || 10} Clients</div>
+                            <div style={{ marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '0.72rem', background: 'rgba(255, 112, 67, 0.15)', color: '#FF7043', border: '1px solid rgba(255, 112, 67, 0.3)', padding: '1px 6px', borderRadius: '4px', fontFamily: 'monospace' }}>
+                                Initial: password123
+                              </span>
+                            </div>
+                            <div style={{ color: 'var(--text-subtle)', fontSize: '0.75rem', marginTop: '3px' }}>{t.experienceYears} Years Exp • {t.assignedClientsCount || 10} Clients</div>
                           </td>
 
                           {/* Specialization */}

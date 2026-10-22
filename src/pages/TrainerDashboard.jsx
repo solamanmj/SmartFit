@@ -274,9 +274,24 @@ export default function TrainerDashboard() {
       setPendingPlans(plansList);
       if (plansList.length > 0) setSelectedPlan(plansList[0]);
     }
-    if (usersList && usersList.length > 0) {
-      setAssignedUsers(usersList);
-      selectClient(usersList[0]);
+    const STALE_LEGACY_ACCOUNTS = [
+      'justin@gmail.com', 'denis@gmail.com', 'dennis@gmail.com',
+      'abin@gmail.com', 'deric@gmail.com', 'aby@example.com',
+      'alex@example.com', 'johndoe@example.com'
+    ];
+    const validUsers = (Array.isArray(usersList) ? usersList : [])
+      .filter(u => !STALE_LEGACY_ACCOUNTS.includes((u.email || '').toLowerCase()));
+    setAssignedUsers(validUsers);
+    if (validUsers.length > 0) {
+      const stillExists = selectedUser && validUsers.find(u => u.email.toLowerCase() === selectedUser.email.toLowerCase());
+      if (stillExists) {
+        setSelectedUser(stillExists);
+      } else {
+        selectClient(validUsers[0]);
+      }
+    } else {
+      setSelectedUser(null);
+      setSelectedUserDetail(null);
     }
     setLoading(false);
   };

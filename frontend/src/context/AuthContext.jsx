@@ -20,15 +20,33 @@ export function AuthProvider({ children }) {
     return null;
   });
 
+  const STALE_LEGACY_ACCOUNTS = [
+    'aby@example.com',
+    'alex@example.com',
+    'justin@gmail.com',
+    'denis@gmail.com',
+    'dennis@gmail.com',
+    'abin@gmail.com',
+    'deric@gmail.com',
+    'johndoe@example.com'
+  ];
+
   const [registeredAccounts, setRegisteredAccounts] = useState(() => {
     const saved = localStorage.getItem('smartfit_accounts');
     let loadedAccounts = [];
     if (saved) {
-      try { loadedAccounts = JSON.parse(saved); } catch (e) { loadedAccounts = []; }
+      try {
+        loadedAccounts = JSON.parse(saved);
+        // Clean out legacy removed seed and test accounts from browser cache
+        loadedAccounts = loadedAccounts.filter(a => !STALE_LEGACY_ACCOUNTS.includes((a.email || '').toLowerCase()));
+      } catch (e) {
+        loadedAccounts = [];
+      }
     }
     // Merge loaded accounts with DEFAULT_ACCOUNTS while strictly preserving updated passwords and flags
     const merged = [...loadedAccounts];
     DEFAULT_ACCOUNTS.forEach(defAcc => {
+      if (STALE_LEGACY_ACCOUNTS.includes((defAcc.email || '').toLowerCase())) return;
       const existingIdx = merged.findIndex(a => a.email.toLowerCase() === defAcc.email.toLowerCase());
       if (existingIdx === -1) {
         merged.push(defAcc);
@@ -42,7 +60,7 @@ export function AuthProvider({ children }) {
         };
       }
     });
-    return merged;
+    return merged.filter(a => !STALE_LEGACY_ACCOUNTS.includes((a.email || '').toLowerCase()));
   });
 
   useEffect(() => {
@@ -257,6 +275,7 @@ export function AuthProvider({ children }) {
     try {
       localStorage.setItem('smartfit_user', JSON.stringify(newUser));
       localStorage.setItem('smartfit_token', authToken);
+      window.dispatchEvent(new Event('smartfit_accounts_updated'));
     } catch (e) {}
     return { user: newUser, token: authToken };
   };

@@ -66,8 +66,20 @@ public class AuthService {
             }
         }
 
-        // If not in database/memory, but matches standard test accounts pattern, create session
-        if (cleanEmail.endsWith("@example.com") || cleanEmail.endsWith("@smartfit.com") || cleanEmail.contains("@gmail.com")) {
+        // Second attempt: retry memoryStore lookup (handles race conditions on startup)
+        Optional<User> retryOpt = userService.findByEmail(cleanEmail);
+        if (retryOpt.isPresent()) {
+            User retryUser = retryOpt.get();
+            if (userService.verifyPassword(request.getPassword(), retryUser.getPassword())) {
+                retryUser.setLoggedIn(true);
+                retryUser.setLastLoginTime(LocalDateTime.now().format(FORMATTER));
+                String token = jwtUtils.generateJwtToken(retryUser.getEmail());
+                return new AuthResponse(token, retryUser);
+            }
+        }
+
+        // Last resort: allow known default-password shortcut for unrecognized staff/test emails
+        if (cleanEmail.endsWith("@example.com") || cleanEmail.endsWith("@smartfit.com")) {
             if ("password123".equals(request.getPassword()) || "AdminPass123!".equals(request.getPassword())) {
                 User fallbackUser = new User();
                 fallbackUser.setEmail(cleanEmail);

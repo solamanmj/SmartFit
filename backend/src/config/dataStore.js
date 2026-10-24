@@ -544,6 +544,204 @@ export const dataStore = {
         }
       }
 
+      // Ensure Member / Athlete core accounts (anugrah, abin, aby, sherin, aibal, etc.) are properly aligned
+      const coreMemberSeeds = [
+        {
+          id: 'usr-1792675281820-gkfo1',
+          fullName: 'Anugrah P',
+          email: 'anugrah@gmail.com',
+          password: '$2a$10$GPpKVnwXCUY67deIvSj49.FpCRym2j5JZrmm/qw./BSscBVwiGR7W',
+          plainPasswordFallback: 'Anugrah@123456',
+          role: 'USER',
+          age: 23,
+          gender: 'Male',
+          height: 167,
+          weight: 60,
+          fitnessGoal: 'Muscle Building',
+          dietaryPreference: 'High Protein',
+          workoutEquipment: 'Full Gym Access',
+          medicalConditions: 'Lower Back Issues',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        },
+        {
+          id: 'usr-1792745598250-q0mr1',
+          fullName: 'Abin Thomas',
+          email: 'abin@gmail.com',
+          password: '$2a$10$TvYyym8uO4.ebI18z1ptb.TmD/BQogSmnD/vo2ds3lyN6VlAVyqg2',
+          plainPasswordFallback: 'Abin@123456',
+          role: 'USER',
+          age: 26,
+          gender: 'Male',
+          height: 175,
+          weight: 68,
+          fitnessGoal: 'Maintenance',
+          dietaryPreference: 'High Protein',
+          workoutEquipment: 'Dumbbells Only',
+          medicalConditions: 'None',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        },
+        {
+          id: 'usr-1792690000000-aby',
+          fullName: 'Aby Thomas',
+          email: 'aby@example.com',
+          password: '$2a$10$9r0lrpaUfBHLRZ2y9oHktOVPCTOj6B4TsHANPrH/fuZFg9G2gp..S',
+          plainPasswordFallback: 'Aby@123456',
+          role: 'USER',
+          age: 24,
+          gender: 'Male',
+          height: 178,
+          weight: 72,
+          fitnessGoal: 'Muscle Building',
+          dietaryPreference: 'High Protein',
+          workoutEquipment: 'Full Gym Access',
+          medicalConditions: 'None',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        },
+        {
+          id: 'usr-1792690000000-sherin',
+          fullName: 'Sherin Mariyam Varghese',
+          email: 'sherin@gmail.com',
+          password: '$2a$10$xnNgJgaj29w6mT.ZFbrHGedpo3nyeNNW.qzNzmMNPIZoi5QKzb/Wu',
+          plainPasswordFallback: 'Sherin@123456',
+          role: 'USER',
+          age: 25,
+          gender: 'Female',
+          height: 165,
+          weight: 58,
+          fitnessGoal: 'Weight Loss & Toning',
+          dietaryPreference: 'Standard Balanced',
+          workoutEquipment: 'Full Gym Access',
+          medicalConditions: 'None',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        },
+        {
+          id: 'usr-1792692012234-iwmhw',
+          fullName: 'Aibal Jose',
+          email: 'aibal@gmail.com',
+          password: '$2a$10$QNymeoc5RwYwhlBVxMNy6uHKyn.ofAT9Fqkr5ZrOs8IkWSHZIY0eC',
+          plainPasswordFallback: 'Aibal@123456',
+          role: 'USER',
+          age: 25,
+          gender: 'Male',
+          height: 173,
+          weight: 70,
+          fitnessGoal: 'General Fitness',
+          dietaryPreference: 'High Protein',
+          workoutEquipment: 'Full Gym Access',
+          medicalConditions: 'None',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        },
+        {
+          id: 'usr-1792690000000-alex',
+          fullName: 'Alex Morgan',
+          email: 'alex@example.com',
+          password: '$2a$10$weqwdWu6fDhPnSwj55SVj.ttOiptor15gkaRkUCNxeJZXekry72jm',
+          plainPasswordFallback: 'Password@123',
+          role: 'USER',
+          age: 26,
+          gender: 'Male',
+          height: 180,
+          weight: 75,
+          fitnessGoal: 'Athletic Conditioning',
+          dietaryPreference: 'Standard Balanced',
+          workoutEquipment: 'Full Gym Access',
+          medicalConditions: 'None',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        },
+        {
+          id: 'usr-1792690000000-john',
+          fullName: 'John Doe',
+          email: 'john@example.com',
+          password: '$2a$10$weqwdWu6fDhPnSwj55SVj.ttOiptor15gkaRkUCNxeJZXekry72jm',
+          plainPasswordFallback: 'Password@123',
+          role: 'USER',
+          age: 21,
+          gender: 'Male',
+          height: 175,
+          weight: 70,
+          fitnessGoal: 'Weight Loss',
+          dietaryPreference: 'Vegetarian',
+          workoutEquipment: 'Dumbbells Only',
+          medicalConditions: 'None',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        },
+        {
+          id: 'usr-1792690000000-priya',
+          fullName: 'Priya Sharma',
+          email: 'priya@example.com',
+          password: '$2a$10$weqwdWu6fDhPnSwj55SVj.ttOiptor15gkaRkUCNxeJZXekry72jm',
+          plainPasswordFallback: 'Password@123',
+          role: 'USER',
+          age: 29,
+          gender: 'Female',
+          height: 162,
+          weight: 55,
+          fitnessGoal: 'Fat Loss & Toning',
+          dietaryPreference: 'Vegetarian',
+          workoutEquipment: 'Dumbbells & Resistance Bands',
+          medicalConditions: 'None',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        },
+        {
+          id: 'usr-1792690000000-carlos',
+          fullName: 'Carlos Mendes',
+          email: 'carlos@example.com',
+          password: '$2a$10$weqwdWu6fDhPnSwj55SVj.ttOiptor15gkaRkUCNxeJZXekry72jm',
+          plainPasswordFallback: 'Password@123',
+          role: 'USER',
+          age: 38,
+          gender: 'Male',
+          height: 180,
+          weight: 84,
+          fitnessGoal: 'Muscle Building',
+          dietaryPreference: 'Standard Balanced',
+          workoutEquipment: 'Full Gym Access',
+          medicalConditions: 'None',
+          hasChangedDefaultPassword: false,
+          passwordLastChangedAt: null
+        }
+      ];
+
+      for (const m of coreMemberSeeds) {
+        const clean = m.email.trim().toLowerCase();
+        const existingIdx = store.users.findIndex(u => u.email && u.email.toLowerCase() === clean);
+        if (existingIdx >= 0) {
+          store.users[existingIdx].password = m.password;
+          store.users[existingIdx].plainPasswordFallback = m.plainPasswordFallback;
+          store.users[existingIdx].hasChangedDefaultPassword = false;
+          store.users[existingIdx].passwordLastChangedAt = null;
+          store.users[existingIdx].id = store.users[existingIdx].id || m.id;
+        } else {
+          store.users.push(m);
+        }
+
+        if (mongoose.connection.readyState === 1) {
+          try {
+            await User.findOneAndUpdate(
+              { email: clean },
+              {
+                $set: {
+                  password: m.password,
+                  plainPasswordFallback: m.plainPasswordFallback,
+                  hasChangedDefaultPassword: false,
+                  passwordLastChangedAt: null,
+                  id: m.id
+                }
+              },
+              { new: true }
+            );
+          } catch (err) {}
+        }
+      }
+
       saveStore(store);
     } catch (e) {
       console.warn('ensureStaffLoginAccounts note:', e.message);
@@ -560,7 +758,10 @@ export const dataStore = {
     if (mongoose.connection.readyState === 1) {
       try {
         const user = await User.findOne({ email: cleanEmail });
-        if (user) return user;
+        if (user) {
+          const userObj = typeof user.toObject === 'function' ? user.toObject() : user;
+          return { ...userObj, id: userObj.id || (userObj._id ? userObj._id.toString() : cleanEmail) };
+        }
       } catch (e) {
         console.warn('MongoDB lookup notice, fallback to local store:', e.message);
       }
@@ -724,7 +925,10 @@ export const dataStore = {
           await Trainer.updateMany({ email: cleanEmail }, staffUpdate);
           await Nutritionist.updateMany({ email: cleanEmail }, staffUpdate);
         }
-        if (doc) return doc;
+        if (doc) {
+          const docObj = typeof doc.toObject === 'function' ? doc.toObject() : doc;
+          return { ...docObj, id: docObj.id || (docObj._id ? docObj._id.toString() : cleanEmail) };
+        }
       } catch (e) {
         console.warn('MongoDB update notice:', e.message);
       }

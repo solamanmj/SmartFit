@@ -3,6 +3,7 @@ export const DEFAULT_ACCOUNTS = [
     fullName: 'Anugrah P',
     email: 'anugrah@gmail.com',
     password: 'Anugrah@123456',
+    plainPasswordFallback: 'Anugrah@123456',
     role: 'USER',
     age: 23,
     gender: 'Male',
@@ -18,6 +19,118 @@ export const DEFAULT_ACCOUNTS = [
     assignedTrainer: {
       email: 'midhun.trainer@smartfit.com',
       name: 'Midhun Suresh',
+      specialization: 'Hypertrophy & Strength Conditioning'
+    },
+    assignedNutritionist: {
+      email: 'elena@example.com',
+      name: 'Dr. Elena Rostova',
+      qualification: 'Ph.D. Sports Clinical Nutrition'
+    }
+  },
+  {
+    fullName: 'Abin Thomas',
+    email: 'abin@gmail.com',
+    password: 'Abin@123456',
+    plainPasswordFallback: 'Abin@123456',
+    role: 'USER',
+    age: 26,
+    gender: 'Male',
+    height: 175,
+    weight: 68,
+    activityLevel: 'Moderately Active',
+    fitnessGoal: 'Maintenance',
+    dietaryPreference: 'High Protein',
+    workoutEquipment: 'Dumbbells Only',
+    medicalConditions: 'None',
+    streakDays: 3,
+    points: 310,
+    assignedTrainer: {
+      email: 'david@example.com',
+      name: 'David Kim',
+      specialization: 'Athletic Mobility & Functional Training'
+    },
+    assignedNutritionist: {
+      email: 'elena@example.com',
+      name: 'Dr. Elena Rostova',
+      qualification: 'Ph.D. Sports Clinical Nutrition & BCNS'
+    }
+  },
+  {
+    fullName: 'Aby Thomas',
+    email: 'aby@example.com',
+    password: 'Aby@123456',
+    plainPasswordFallback: 'Aby@123456',
+    role: 'USER',
+    age: 24,
+    gender: 'Male',
+    height: 178,
+    weight: 72,
+    activityLevel: 'Moderately Active',
+    fitnessGoal: 'Muscle Building',
+    dietaryPreference: 'High Protein',
+    workoutEquipment: 'Full Gym Access',
+    medicalConditions: 'None',
+    streakDays: 6,
+    points: 380,
+    assignedTrainer: {
+      email: 'marcus@example.com',
+      name: 'Coach Marcus Vance',
+      specialization: 'Hypertrophy & Strength Conditioning'
+    },
+    assignedNutritionist: {
+      email: 'sruthy@example.com',
+      name: 'Sruthy Varghese (M.Sc)',
+      qualification: 'M.Sc. Dietetics & Performance Nutrition'
+    }
+  },
+  {
+    fullName: 'Sherin Mariyam Varghese',
+    email: 'sherin@gmail.com',
+    password: 'Sherin@123456',
+    plainPasswordFallback: 'Sherin@123456',
+    role: 'USER',
+    age: 25,
+    gender: 'Female',
+    height: 165,
+    weight: 58,
+    activityLevel: 'Moderately Active',
+    fitnessGoal: 'Weight Loss & Toning',
+    dietaryPreference: 'Standard Balanced',
+    workoutEquipment: 'Full Gym Access',
+    medicalConditions: 'None',
+    streakDays: 4,
+    points: 290,
+    assignedTrainer: {
+      email: 'sarah@example.com',
+      name: 'Coach Sarah Jenkins',
+      specialization: 'Cardio Endurance & Calisthenics'
+    },
+    assignedNutritionist: {
+      email: 'sruthy@example.com',
+      name: 'Sruthy Varghese (M.Sc)',
+      qualification: 'M.Sc. Dietetics & Performance Nutrition'
+    }
+  },
+  {
+    fullName: 'Aibal Jose',
+    email: 'aibal@gmail.com',
+    password: 'Aibal@123456',
+    plainPasswordFallback: 'Aibal@123456',
+    role: 'USER',
+    age: 25,
+    gender: 'Male',
+    height: 173,
+    weight: 70,
+    activityLevel: 'Moderately Active',
+    fitnessGoal: 'General Fitness',
+    dietaryPreference: 'High Protein',
+    workoutEquipment: 'Full Gym Access',
+    medicalConditions: 'None',
+    streakDays: 2,
+    points: 220,
+    assignedTrainer: {
+      email: 'marcus@example.com',
+      name: 'Coach Marcus Vance',
       specialization: 'Hypertrophy & Strength Conditioning'
     },
     assignedNutritionist: {

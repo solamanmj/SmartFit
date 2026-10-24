@@ -1,4 +1,5 @@
-const ADMIN_BASE_URL = 'http://localhost:8081/api/admin';
+export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) || 'http://localhost:8081/api';
+export const ADMIN_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ADMIN_API_BASE_URL) || `${API_BASE_URL}/admin`;
 
 const getHeaders = () => {
   const token = localStorage.getItem('smartfit_token');
@@ -43,7 +44,7 @@ export const fetchAdminUsersApi = async () => {
 
   // Resilient fallback to /api/users/all
   try {
-    const res2 = await fetch('http://localhost:8081/api/users/all', { headers: getHeaders() });
+    const res2 = await fetch(`${API_BASE_URL}/users/all`, { headers: getHeaders() });
     if (res2.ok) {
       const data2 = await res2.json();
       if (Array.isArray(data2)) return data2;

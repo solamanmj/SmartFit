@@ -4,7 +4,7 @@ import WorkoutLog from '../models/WorkoutLog.js';
 import { dataStore } from '../config/dataStore.js';
 
 const router = express.Router();
-const FASTAPI_ML_URL = 'http://localhost:8000/predict/workout';
+const FASTAPI_ML_URL = process.env.FASTAPI_ML_URL || 'http://localhost:8000/predict/workout';
 
 // Helper: Generate fallback / rule-based exercises
 function generateWorkoutExercises(user, category = 'Full Body') {

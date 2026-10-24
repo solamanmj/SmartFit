@@ -12,7 +12,9 @@
     "devall": "npm run dev:all",
     "start": "npm run dev:all",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:playwright": "node tests/smartfit-features.test.js",
+    "test": "npm run test:playwright"
   },
   "dependencies": {
     "lucide-react": "^0.344.0",
@@ -25,6 +27,7 @@
     "@types/react-dom": "^18.2.19",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^10.0.4",
+    "playwright": "^1.64.1",
     "vite": "^5.1.4"
   }
 }

@@ -3,6 +3,7 @@
 
 const STORAGE_KEY = 'smartfit_chat_threads_v1';
 const READ_STATE_KEY = 'smartfit_chat_read_state_v1';
+const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) || 'http://localhost:8081/api';
 
 const INITIAL_MESSAGES = [
   // Aby Thomas <-> Coach Marcus Vance (Trainer)
@@ -166,7 +167,6 @@ export async function syncConversationWithBackend(clientEmail, specialistEmail, 
   const sEmail = specialistEmail.trim().toLowerCase();
 
   try {
-    const API_BASE_URL = 'http://localhost:8081/api';
     let url = '';
     if (userRole === 'NUTRITIONIST') {
       url = `${API_BASE_URL}/nutritionist/chat/conversation/${encodeURIComponent(cEmail)}?email=${encodeURIComponent(sEmail)}`;
@@ -282,7 +282,6 @@ export function sendChatMessage({
   // Asynchronously persist to backend API
   (async () => {
     try {
-      const API_BASE_URL = 'http://localhost:8081/api';
       const isNutriSender = (senderRole || '').toUpperCase() === 'NUTRITIONIST';
       const endpoint = isNutriSender ? `${API_BASE_URL}/nutritionist/chat/messages` : `${API_BASE_URL}/users/chat/messages`;
       

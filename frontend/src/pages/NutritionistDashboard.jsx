@@ -790,16 +790,7 @@ export default function NutritionistDashboard() {
     let dashStats = null;
     let usersList = null;
 
-    const STALE_LEGACY_ACCOUNTS = [
-      'justin@gmail.com',
-      'denis@gmail.com',
-      'dennis@gmail.com',
-      'abin@gmail.com',
-      'deric@gmail.com',
-      'aby@example.com',
-      'alex@example.com',
-      'johndoe@example.com'
-    ];
+    const STALE_LEGACY_ACCOUNTS = [];
 
     // Clean browser localStorage cache immediately to remove deleted and stale accounts
     try {

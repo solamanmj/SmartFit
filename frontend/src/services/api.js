@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:8081/api';
+export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) || 'http://localhost:8081/api';
+export const ML_SERVICE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ML_SERVICE_URL) || 'http://localhost:8000';
 
 export const registerUserApi = async (registerData) => {
   const controller = new AbortController();
@@ -193,7 +194,7 @@ export const fetchAINutritionPlan = async (userProfile) => {
   };
 
   try {
-    const response = await fetch('http://localhost:8000/predict/nutrition', {
+    const response = await fetch(`${ML_SERVICE_URL}/predict/nutrition`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -462,16 +463,7 @@ export const fetchNutritionistDashboardApi = async (nutritionistEmail) => {
   };
 };
 
-const STALE_LEGACY_ACCOUNTS = [
-  'justin@gmail.com',
-  'denis@gmail.com',
-  'dennis@gmail.com',
-  'abin@gmail.com',
-  'deric@gmail.com',
-  'aby@example.com',
-  'alex@example.com',
-  'johndoe@example.com'
-];
+const STALE_LEGACY_ACCOUNTS = [];
 
 export const fetchNutritionistAssignedUsersApi = async (nutritionistEmail, filter = 'all') => {
   try {

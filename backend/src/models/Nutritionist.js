@@ -1,6 +1,8 @@
 import mongoose from 'mongoose';
 
 const nutritionistSchema = new mongoose.Schema({
+  _id: { type: mongoose.Schema.Types.Mixed },
+  id: { type: String },
   fullName: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   qualification: { type: String, required: true },
@@ -30,7 +32,14 @@ const nutritionistSchema = new mongoose.Schema({
   timestamps: true,
   toJSON: {
     transform: (doc, ret) => {
-      ret.id = ret._id.toString();
+      ret.id = ret._id ? ret._id.toString() : (ret.id || (doc && (doc.id || (doc._id ? doc._id.toString() : ''))) || '');
+      delete ret.__v;
+      return ret;
+    }
+  },
+  toObject: {
+    transform: (doc, ret) => {
+      ret.id = ret._id ? ret._id.toString() : (ret.id || (doc && (doc.id || (doc._id ? doc._id.toString() : ''))) || '');
       delete ret.__v;
       return ret;
     }

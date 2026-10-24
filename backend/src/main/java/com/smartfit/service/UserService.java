@@ -39,6 +39,7 @@ public class UserService {
             createRoleUser("David Kim", "david@example.com", "password123", 24, "Male", 176.0, 68.0, "Lightly Active", "Athletic Conditioning", "Standard Balanced", "Bodyweight / Calisthenics", "None", "TRAINER", passwordEncoder),
             createRoleUser("Dr. Elena Rostova", "elena@example.com", "password123", 31, "Female", 170.0, 62.0, "Moderately Active", "Hypertrophy & Toning", "Low Carb", "Full Gym Access", "None", "NUTRITIONIST", passwordEncoder),
             createRoleUser("Sruthy Varghese", "sruthy@example.com", "password123", 25, "Female", 163.0, 56.0, "Very Active", "Fat Loss & Toning", "Vegetarian", "Dumbbells & Resistance Bands", "None", "NUTRITIONIST", passwordEncoder),
+            createRoleUser("Midhun Suresh", "midhun.trainer@smartfit.com", "password123", 29, "Male", 182.0, 85.0, "Very Active", "Hypertrophy & Strength Conditioning", "High Protein", "Full Gym Access", "None", "TRAINER", passwordEncoder),
             createUser("Aby Thomas", "aby@example.com", "password123", 27, "Male", 177.0, 74.0, "Moderately Active", "Muscle Building", "Standard Balanced", "Full Gym Access", "None", passwordEncoder),
             createUser("Alex Morgan", "alex@example.com", "password123", 26, "Male", 178.0, 75.0, "Moderately Active", "Muscle Building", "Standard Balanced", "Full Gym Access", "None", passwordEncoder),
             createUser("John Doe", "john@example.com", "password123", 21, "Male", 175.0, 70.0, "Moderately Active", "Weight Loss", "Vegetarian", "Dumbbells Only", "None", passwordEncoder),
@@ -47,6 +48,7 @@ public class UserService {
             createUser("Emily Watson", "emily@example.com", "password123", 25, "Female", 168.0, 60.0, "Lightly Active", "Health & Mobility", "Pescatarian", "Yoga Mat & Dumbbells", "None", passwordEncoder),
             createUser("Michael Chang", "michael@example.com", "password123", 42, "Male", 172.0, 78.0, "Moderately Active", "Weight Loss", "Low Carb", "Full Gym Access", "Mild Asthma", passwordEncoder),
             createUser("Sophia Taylor", "sophia@example.com", "password123", 23, "Female", 160.0, 52.0, "Very Active", "Endurance", "High Protein", "Full Gym Access", "None", passwordEncoder),
+            createUser("Anugrah P", "anugrah@gmail.com", "Anugrah@123456", 23, "Male", 167.0, 60.0, "Moderately Active", "Muscle Building", "High Protein", "Full Gym Access", "Lower Back Issues", passwordEncoder),
             createUser("James Wilson", "james@example.com", "password123", 30, "Male", 182.0, 88.0, "Very Active", "Hypertrophy", "Standard Balanced", "Full Gym Access", "None", passwordEncoder)
         };
 

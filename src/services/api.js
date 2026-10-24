@@ -1,4 +1,5 @@
-const API_BASE_URL = 'http://localhost:8081/api';
+export const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL) || 'http://localhost:8081/api';
+export const ML_SERVICE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_ML_SERVICE_URL) || 'http://localhost:8000';
 
 export const registerUserApi = async (registerData) => {
   const controller = new AbortController();
@@ -38,12 +39,17 @@ export const registerUserApi = async (registerData) => {
 };
 
 export const loginUserApi = async (loginData) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 4000);
+
   try {
     const response = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(loginData)
+      body: JSON.stringify(loginData),
+      signal: controller.signal
     });
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errText = await response.text();
@@ -59,6 +65,10 @@ export const loginUserApi = async (loginData) => {
 
     return await response.json();
   } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error('Connection timed out. Switched to offline mode.');
+    }
     if (err.message && !err.message.toLowerCase().includes('failed to fetch')) {
       throw err;
     }
@@ -193,7 +203,7 @@ export const fetchAINutritionPlan = async (userProfile) => {
   };
 
   try {
-    const response = await fetch('http://localhost:8000/predict/nutrition', {
+    const response = await fetch(`${ML_SERVICE_URL}/predict/nutrition`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
@@ -462,16 +472,7 @@ export const fetchNutritionistDashboardApi = async (nutritionistEmail) => {
   };
 };
 
-const STALE_LEGACY_ACCOUNTS = [
-  'justin@gmail.com',
-  'denis@gmail.com',
-  'dennis@gmail.com',
-  'abin@gmail.com',
-  'deric@gmail.com',
-  'aby@example.com',
-  'alex@example.com',
-  'johndoe@example.com'
-];
+const STALE_LEGACY_ACCOUNTS = [];
 
 export const fetchNutritionistAssignedUsersApi = async (nutritionistEmail, filter = 'all') => {
   try {

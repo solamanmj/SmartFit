@@ -562,7 +562,8 @@ router.get('/analytics', async (req, res) => {
 // Recommendation Models status proxy
 router.get('/recommendations', async (req, res) => {
   try {
-    const response = await fetch('http://localhost:8000/admin/models/status');
+    const mlBaseUrl = process.env.ML_SERVICE_URL || 'http://localhost:8000';
+    const response = await fetch(`${mlBaseUrl}/admin/models/status`);
     if (response.ok) {
       const mlResponse = await response.json();
       return res.status(200).json(mlResponse);

@@ -6,7 +6,7 @@ import {
   Apple, Plus, Trash2, Edit, Award, ShieldCheck, ShieldAlert, FileText, 
   CheckCircle2, Sparkles, Check, X
 } from 'lucide-react';
-import { fetchAdminNutritionistsApi, deleteAdminNutritionistApi } from '../../services/adminApi';
+import { fetchAdminNutritionistsApi, deleteAdminNutritionistApi, ADMIN_BASE_URL } from '../../services/adminApi';
 
 const DEFAULT_NUTRITIONISTS = [
   {
@@ -163,7 +163,7 @@ export default function AdminNutritionists() {
         verificationStatus: liveEvaluation.status
       };
 
-      const res = await fetch('http://localhost:8081/api/admin/nutritionists', {
+      const res = await fetch(`${ADMIN_BASE_URL}/nutritionists`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)

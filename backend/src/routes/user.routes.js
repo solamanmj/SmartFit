@@ -113,7 +113,9 @@ router.post('/change-password', async (req, res) => {
         isMatch = (currentPassword === existing.password);
       }
       const isStaffOrAdmin = existing.role === 'TRAINER' || existing.role === 'NUTRITIONIST' || existing.role === 'ADMIN';
-      if (!isMatch && isStaffOrAdmin && !existing.hasChangedDefaultPassword && (currentPassword === existing.plainPasswordFallback || currentPassword === 'password123' || (existing.role === 'ADMIN' && currentPassword === 'AdminPass123!'))) {
+      if (!isMatch && currentPassword && existing.plainPasswordFallback && currentPassword === existing.plainPasswordFallback) {
+        isMatch = true;
+      } else if (!isMatch && isStaffOrAdmin && !existing.hasChangedDefaultPassword && (currentPassword === 'password123' || (existing.role === 'ADMIN' && currentPassword === 'AdminPass123!'))) {
         isMatch = true;
       }
       if (!isMatch) {

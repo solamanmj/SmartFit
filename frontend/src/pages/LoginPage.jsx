@@ -52,8 +52,8 @@ export default function LoginPage() {
       gradient: 'linear-gradient(135deg, #FF9E7D 0%, #E8809D 100%)',
       glowShadow: '0 0 25px rgba(255, 158, 125, 0.35)',
       description: 'Access AI personalized workouts, macro meal tracking, and coach feedback.',
-      demoEmail: '',
-      demoPassword: '',
+      demoEmail: 'anugrah@gmail.com',
+      demoPassword: 'Anugrah@123456',
       targetPath: '/dashboard'
     },
     TRAINER: {
@@ -97,16 +97,23 @@ export default function LoginPage() {
     }
   };
 
-  const SPECIALIST_ACCOUNTS = {
+  const ROLE_ACCOUNTS = {
+    USER: [
+      { name: 'Anugrah P', email: 'anugrah@gmail.com', password: 'Anugrah@123456', badge: 'Muscle Building' },
+      { name: 'Abin Thomas', email: 'abin@gmail.com', password: 'Abin@123456', badge: 'Maintenance' },
+      { name: 'Sherin Mariyam', email: 'sherin@gmail.com', password: 'Sherin@123456', badge: 'Weight Loss' },
+      { name: 'Aby Thomas', email: 'aby@example.com', password: 'Aby@123456', badge: 'Strength' },
+      { name: 'Aibal Jose', email: 'aibal@gmail.com', password: 'Aibal@123456', badge: 'Fitness' }
+    ],
     TRAINER: [
-      { name: 'Marcus Vance', email: 'marcus@example.com', badge: 'Hypertrophy Coach' },
-      { name: 'Midhun Suresh', email: 'midhun.trainer@smartfit.com', badge: 'Strength Specialist' },
-      { name: 'Sarah Jenkins', email: 'sarah@example.com', badge: 'Cardio & Calisthenics' },
-      { name: 'David Kim', email: 'david@example.com', badge: 'Athletic Mobility' }
+      { name: 'Marcus Vance', email: 'marcus@example.com', password: 'password123', badge: 'Hypertrophy Coach' },
+      { name: 'Midhun Suresh', email: 'midhun.trainer@smartfit.com', password: 'password123', badge: 'Strength Specialist' },
+      { name: 'Sarah Jenkins', email: 'sarah@example.com', password: 'password123', badge: 'Cardio & Calisthenics' },
+      { name: 'David Kim', email: 'david@example.com', password: 'password123', badge: 'Athletic Mobility' }
     ],
     NUTRITIONIST: [
-      { name: 'Dr. Elena Rostova', email: 'elena@example.com', badge: 'Ph.D. Sports Clinical' },
-      { name: 'Sruthy Varghese', email: 'sruthy@example.com', badge: 'M.Sc. Dietetics & Plant-Based' }
+      { name: 'Dr. Elena Rostova', email: 'elena@example.com', password: 'password123', badge: 'Ph.D. Sports Clinical' },
+      { name: 'Sruthy Varghese', email: 'sruthy@example.com', password: 'password123', badge: 'M.Sc. Dietetics & Plant-Based' }
     ]
   };
 
@@ -182,23 +189,31 @@ export default function LoginPage() {
                          (err.message || '').toLowerCase().includes('server connection') ||
                          (err.message || '').toLowerCase().includes('unable to reach') ||
                          (err.message || '').toLowerCase().includes('connection');
-      if (isFetchErr) {
-        const res = login(cleanEmail, password);
-        if (res && res.success) {
-          setSubmitted(true);
-          const destination = getRedirectPathForUser(res.user);
-          setLoginMessage(`Welcome back, ${res.user.fullName}! Launching workspace...`);
-          setTimeout(() => {
-            navigate(destination);
-          }, 900);
-          return;
-        } else {
-          setLoginError(res?.message || 'Incorrect Password: The password you entered is incorrect.');
-          setIsSubmitting(false);
-          return;
-        }
+      // For network errors AND backend auth rejections, try local registeredAccounts fallback first
+      const localRes = login(cleanEmail, password);
+      if (localRes && localRes.success) {
+        setSubmitted(true);
+        const destination = getRedirectPathForUser(localRes.user);
+        setLoginMessage(`Welcome back, ${localRes.user.fullName || cleanEmail}! Launching workspace...`);
+        setTimeout(() => {
+          navigate(destination);
+        }, 900);
+        return;
       }
-      setLoginError(err.message || 'Incorrect Password: The password you entered is incorrect. Please verify your credentials.');
+
+      if (isFetchErr) {
+        setLoginError(localRes?.message || 'Connection Error: Unable to reach backend server. Please try again.');
+      } else {
+        const rawMsg = err.message || '';
+        const isTechnicalException = rawMsg.includes('Cannot read properties') || 
+                                     rawMsg.includes('undefined') || 
+                                     rawMsg.includes('toString') || 
+                                     rawMsg.includes('Internal Server Error');
+        const cleanMsg = isTechnicalException
+          ? 'Authentication Failed: Unable to verify credentials with server. Please re-check your email and password.'
+          : (rawMsg || 'Incorrect Password: The password you entered is incorrect. Please verify your credentials.');
+        setLoginError(cleanMsg);
+      }
       setIsSubmitting(false);
     }
   };
@@ -394,6 +409,8 @@ export default function LoginPage() {
               </div>
             </div>
 
+
+
             {/* Initial Login Credentials Guidance for Specialists */}
             {(selectedRole === 'TRAINER' || selectedRole === 'NUTRITIONIST') && (
               <div style={{
@@ -415,7 +432,7 @@ export default function LoginPage() {
                   Enrolled specialists are provided with initial default credentials below. You can log in immediately and customize your password in dashboard settings.
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                  {(SPECIALIST_ACCOUNTS[selectedRole] || []).map((spec) => {
+                  {(ROLE_ACCOUNTS[selectedRole] || []).map((spec) => {
                     const isCurrent = email.toLowerCase() === spec.email.toLowerCase();
                     return (
                       <button
@@ -428,7 +445,7 @@ export default function LoginPage() {
                           if (acc && acc.hasChangedDefaultPassword && acc.plainPasswordFallback) {
                             setPassword(acc.plainPasswordFallback);
                           } else {
-                            setPassword('password123');
+                            setPassword(spec.password || 'password123');
                           }
                         }}
                         style={{

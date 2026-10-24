@@ -284,11 +284,7 @@ export default function TrainerDashboard() {
       setPendingPlans(plansList);
       if (plansList.length > 0) setSelectedPlan(plansList[0]);
     }
-    const STALE_LEGACY_ACCOUNTS = [
-      'justin@gmail.com', 'denis@gmail.com', 'dennis@gmail.com',
-      'abin@gmail.com', 'deric@gmail.com', 'aby@example.com',
-      'alex@example.com', 'johndoe@example.com'
-    ];
+    const STALE_LEGACY_ACCOUNTS = [];
     const validUsers = (Array.isArray(usersList) ? usersList : [])
       .filter(u => !STALE_LEGACY_ACCOUNTS.includes((u.email || '').toLowerCase()));
     setAssignedUsers(validUsers);

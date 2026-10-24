@@ -6,7 +6,7 @@ import {
   ShieldCheck, Users, Dumbbell, Database, Search, RefreshCw,
   Sparkles, User, Trash2
 } from 'lucide-react';
-import { fetchAllRegisteredUsersApi, deleteUserApi } from '../services/api';
+import { fetchAllRegisteredUsersApi, deleteUserApi, API_BASE_URL } from '../services/api';
 import { fetchAdminTrainersApi, fetchAdminNutritionistsApi } from '../services/adminApi';
 
 export default function AdminDashboard() {
@@ -53,7 +53,7 @@ export default function AdminDashboard() {
       if (Array.isArray(nutritionistsData)) setNutritionistsList(nutritionistsData);
 
       // 2. Fetch all workout logs
-      const logsRes = await fetch('http://localhost:8081/api/workouts/all-logs');
+      const logsRes = await fetch(`${API_BASE_URL}/workouts/all-logs`);
       if (logsRes.ok) {
         const logsData = await logsRes.json();
         setWorkoutLogsList(logsData);
@@ -257,7 +257,7 @@ export default function AdminDashboard() {
                                 const email = e.target.value;
                                 const selected = trainersList.find(t => t.email.toLowerCase() === email.toLowerCase()) || { fullName: 'Coach', specialization: 'Personal Trainer' };
                                 try {
-                                  await fetch('http://localhost:8081/api/admin/assign-trainer', {
+                                  await fetch(`${API_BASE_URL}/admin/assign-trainer`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
@@ -300,7 +300,7 @@ export default function AdminDashboard() {
                                 const email = e.target.value;
                                 const selected = nutritionistsList.find(n => n.email.toLowerCase() === email.toLowerCase()) || { fullName: 'Dietitian', qualification: 'Nutritionist' };
                                 try {
-                                  await fetch('http://localhost:8081/api/admin/assign-nutritionist', {
+                                  await fetch(`${API_BASE_URL}/admin/assign-nutritionist`, {
                                     method: 'POST',
                                     headers: { 'Content-Type': 'application/json' },
                                     body: JSON.stringify({
